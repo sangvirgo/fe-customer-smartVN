@@ -1,12 +1,18 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { useParams, useNavigate, Link } from "react-router-dom"
-import { Star, ShoppingCart, Heart, Share2, MapPin, Store, AlertCircle } from "lucide-react"
-import Header from "../components/Header"
-import axiosInstance from "../api/axios"
-import { addToCart } from "../utils/cart"
-import { showToast } from "../components/Toast"
+import { useState, useEffect } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import {
+  Star,
+  ShoppingCart,
+  Heart,
+  Share2,
+  MapPin,
+  Store,
+  AlertCircle,
+} from "lucide-react";
+import Header from "../../components/Header";
+import axiosInstance from "../../services/axios";
+import { addToCart } from "../../utils/cart";
+import { showToast } from "../../components/Toast";
 
 export default function ProductDetail() {
   const { id } = useParams()

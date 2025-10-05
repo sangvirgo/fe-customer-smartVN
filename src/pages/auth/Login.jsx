@@ -1,9 +1,10 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useNavigate, Link } from "react-router-dom"
-import axios from "../api/axios"
-import { showToast } from "../components/Toast"
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import axios from "../../services/axios";
+import { showToast } from "../../components/Toast";
+
 
 export default function Login() {
   const navigate = useNavigate()

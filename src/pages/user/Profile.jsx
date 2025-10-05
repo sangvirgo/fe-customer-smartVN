@@ -1,9 +1,7 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { User, MapPin, Package, Star, Edit2, Plus, Trash2 } from "lucide-react"
-import axios from "../api/axios"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { useState, useEffect } from "react";
+import { User, MapPin, Package, Star, Edit2, Plus, Trash2 } from "lucide-react";
+import axios from "../../services/axios";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 export default function Profile() {
   const [searchParams] = useSearchParams()

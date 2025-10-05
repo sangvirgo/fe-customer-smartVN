@@ -1,9 +1,15 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Link, useNavigate } from "react-router-dom"
-import { ShoppingCart, Trash2, Plus, Minus, ArrowRight } from "lucide-react"
-import axiosInstance from "../api/axios"
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  ShoppingCart,
+  Trash2,
+  Plus,
+  Minus,
+  ArrowRight,
+} from "lucide-react";
+import axiosInstance from "../../services/axios";
 
 export default function Cart() {
   const navigate = useNavigate()

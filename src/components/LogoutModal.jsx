@@ -1,9 +1,7 @@
-"use client"
-
-import { X } from "lucide-react"
-import { useNavigate } from "react-router-dom"
-import axios from "../api/axios"
-import { useState } from "react"
+import { X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import axios from "../services/axios";
+import { useState } from "react";
 
 export default function LogoutModal({ isOpen, onClose }) {
   const [isLoading, setIsLoading] = useState(false)

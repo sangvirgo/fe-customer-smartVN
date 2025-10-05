@@ -1,10 +1,15 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { Link } from "react-router-dom"
-import { ChevronRight, Star, TrendingUp, Zap, Shield, Truck } from "lucide-react"
-import Header from "../components/Header"
-import axiosInstance from "../api/axios"
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import {
+  ChevronRight,
+  Star,
+  TrendingUp,
+  Zap,
+  Shield,
+  Truck,
+} from "lucide-react";
+import Header from "../components/Header";
+import axiosInstance from "../services/axios";
 
 export default function Home() {
   const [categories, setCategories] = useState([])
@@ -15,22 +20,31 @@ export default function Home() {
     fetchHomeData()
   }, [])
 
-  const fetchHomeData = async () => {
-    try {
-      setLoading(true)
-      const [categoriesRes, productsRes] = await Promise.all([
-        axiosInstance.get("/api/v1/categories"),
-        axiosInstance.get("/api/v1/products?limit=8&featured=true"),
-      ])
+const fetchHomeData = async () => {
+  try {
+    setLoading(true)
+    const [categoriesRes, productsRes] = await Promise.all([
+      axiosInstance.get("/api/v1/categories"),
+      axiosInstance.get("/api/v1/products?limit=8&featured=true"),
+    ])
 
-      setCategories(categoriesRes.data.slice(0, 6))
-      setFeaturedProducts(productsRes.data)
-    } catch (error) {
-      console.error("Error fetching home data:", error)
-    } finally {
-      setLoading(false)
-    }
+    // ✅ Kiểm tra cấu trúc data trước khi xử lý
+    const categoriesData = Array.isArray(categoriesRes.data) 
+      ? categoriesRes.data 
+      : categoriesRes.data.content || []
+    
+    const productsData = Array.isArray(productsRes.data)
+      ? productsRes.data
+      : productsRes.data.content || []
+
+    setCategories(categoriesData.slice(0, 6))
+    setFeaturedProducts(productsData)
+  } catch (error) {
+    console.error("Error fetching home data:", error)
+  } finally {
+    setLoading(false)
   }
+}
 
   return (
     <div className="min-h-screen bg-gray-50">

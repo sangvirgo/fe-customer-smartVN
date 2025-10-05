@@ -1,11 +1,9 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { useSearchParams } from "react-router-dom"
-import Header from "../components/Header"
-import axiosInstance from "../api/axios"
-import ProductCard from "../components/ProductCard"
-import FilterSidebar from "../components/FilterSidebar"
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import Header from "../../components/Header";
+import axiosInstance from "../../services/axios";
+import ProductCard from "../../components/ProductCard";
+import FilterSidebar from "../../components/FilterSidebar";
 
 export default function Category() {
   const [searchParams, setSearchParams] = useSearchParams()

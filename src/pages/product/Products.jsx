@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Link, useSearchParams } from "react-router-dom"
-import { ChevronRight, Star, SlidersHorizontal, X } from "lucide-react"
-import Header from "../components/Header"
-import axiosInstance from "../api/axios"
+import { useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ChevronRight, Star, SlidersHorizontal, X } from "lucide-react";
+import Header from "../../components/Header";
+import axiosInstance from "../../services/axios";
 
 export default function Products() {
   const [searchParams, setSearchParams] = useSearchParams()

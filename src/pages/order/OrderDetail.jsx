@@ -1,10 +1,16 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { useParams, useNavigate } from "react-router-dom"
-import { Package, MapPin, CreditCard, Truck, CheckCircle, XCircle, Clock } from "lucide-react"
-import axios from "../api/axios"
-import WriteReviewModal from "../components/WriteReviewModal"
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  Package,
+  MapPin,
+  CreditCard,
+  Truck,
+  CheckCircle,
+  XCircle,
+  Clock,
+} from "lucide-react";
+import axios from "../../services/axios";
+import WriteReviewModal from "../../components/WriteReviewModal";
 
 export default function OrderDetail() {
   const { orderId } = useParams()
