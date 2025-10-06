@@ -84,9 +84,6 @@ export default function Header() {
               <Link to="/products" className="text-gray-700 hover:text-blue-600 font-medium transition-colors">
                 Products
               </Link>
-              <Link to="/categories" className="text-gray-700 hover:text-blue-600 font-medium transition-colors">
-                Categories
-              </Link>
             </nav>
 
             {/* Right Side Actions */}
@@ -199,13 +196,6 @@ export default function Header() {
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Products
-                </Link>
-                <Link
-                  to="/categories"
-                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Categories
                 </Link>
               </nav>
             </div>

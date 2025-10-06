@@ -9,7 +9,6 @@ import {
   Store,
   AlertCircle,
 } from "lucide-react";
-import Header from "../../components/Header";
 import axiosInstance from "../../services/axios";
 import { addToCart } from "../../utils/cart";
 import { showToast } from "../../components/Toast";
@@ -39,6 +38,16 @@ export default function ProductDetail() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [id])
 
+  const checkUserReview = (reviewsData) => {
+    if (!isLoggedIn) return false
+    
+    const currentUser = JSON.parse(localStorage.getItem("user") || "{}")
+    const userId = currentUser.id
+    
+    const userReview = reviewsData.find(r => r.userId === userId)
+    setHasUserReviewed(!!userReview)
+  }
+
   const fetchProductDetails = async () => {
     try {
       setLoading(true)
@@ -52,6 +61,9 @@ export default function ProductDetail() {
       
       setProduct(productData)
       setReviews(reviewsData)
+
+      // Check nếu user đã review
+      checkUserReview(reviewsData)
 
       if (productData.priceVariants?.length > 0) {
         const uniqueSizes = [...new Set(productData.priceVariants.map(v => v.size))]
@@ -92,10 +104,51 @@ export default function ProductDetail() {
     showToast("Added to cart successfully!", "success")
   }
 
+  const handleSubmitReview = async (e) => {
+    e.preventDefault()
+    
+    if (!isLoggedIn) {
+      showToast("Please login to write a review", "error")
+      navigate("/login")
+      return
+    }
+  
+    if (!reviewForm.content.trim()) {
+      showToast("Please write a review", "error")
+      return
+    }
+  
+    try {
+      setSubmittingReview(true)
+      
+      await axiosInstance.post(`/products/${id}/reviews`, {
+        rating: reviewForm.rating,
+        reviewContent: reviewForm.content
+      })
+  
+      showToast("Review submitted successfully!", "success")
+      
+      // Reset form
+      setReviewForm({ rating: 5, content: "" })
+      setShowReviewForm(false)
+      
+      // Refresh reviews
+      const reviewsRes = await axiosInstance.get(`/products/${id}/reviews`)
+      const reviewsData = reviewsRes.data.data.content
+      setReviews(reviewsData)
+      checkUserReview(reviewsData)
+      
+    } catch (error) {
+      console.error("Error submitting review:", error)
+      showToast(error.message || "Failed to submit review", "error")
+    } finally {
+      setSubmittingReview(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="animate-pulse grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="space-y-4">
@@ -118,7 +171,6 @@ export default function ProductDetail() {
   if (!product) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
         <div className="max-w-7xl mx-auto py-8 text-center">
           <p className="text-gray-500 text-lg">Product not found</p>
         </div>
@@ -130,7 +182,6 @@ export default function ProductDetail() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
           {/* Image Gallery */}
@@ -299,12 +350,119 @@ export default function ProductDetail() {
                     </div>
                 )}
                 {activeTab === "reviews" && (
-                    <div className="space-y-6">
+                  <div className="space-y-6">
+                    {/* Review Form - Chỉ hiện nếu logged in và chưa review */}
+                    {isLoggedIn && !hasUserReviewed && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                        {!showReviewForm ? (
+                          <button
+                            onClick={() => setShowReviewForm(true)}
+                            className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                          >
+                            Write a Review
+                          </button>
+                        ) : (
+                          <form onSubmit={handleSubmitReview} className="space-y-4">
+                            <h3 className="font-semibold text-gray-900">Write Your Review</h3>
+                            
+                            {/* Rating */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Rating
+                              </label>
+                              <div className="flex items-center space-x-2">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <button
+                                    key={star}
+                                    type="button"
+                                    onClick={() => setReviewForm({ ...reviewForm, rating: star })}
+                                    className="focus:outline-none"
+                                  >
+                                    <Star
+                                      className={`w-8 h-8 ${
+                                        star <= reviewForm.rating
+                                          ? "text-yellow-400 fill-yellow-400"
+                                          : "text-gray-300"
+                                      }`}
+                                    />
+                                  </button>
+                                ))}
+                                <span className="ml-2 text-gray-600">
+                                  {reviewForm.rating} / 5
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Review Content */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Your Review
+                              </label>
+                              <textarea
+                                value={reviewForm.content}
+                                onChange={(e) => setReviewForm({ ...reviewForm, content: e.target.value })}
+                                placeholder="Share your experience with this product..."
+                                rows={4}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                required
+                              />
+                            </div>
+
+                            {/* Buttons */}
+                            <div className="flex space-x-3">
+                              <button
+                                type="submit"
+                                disabled={submittingReview}
+                                className="flex-1 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {submittingReview ? "Submitting..." : "Submit Review"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowReviewForm(false)
+                                  setReviewForm({ rating: 5, content: "" })
+                                }}
+                                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </form>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Message nếu đã review */}
+                    {isLoggedIn && hasUserReviewed && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <p className="text-green-800">
+                          ✓ You have already reviewed this product
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Message nếu chưa login */}
+    								{!isLoggedIn && (
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-800">
+                          <Link to="/login" className="font-semibold underline">
+                            Login
+                          </Link>{" "}
+                          to write a review
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Existing reviews */}
                     {reviews.length === 0 ? (
-                      <p className="text-gray-500 text-center py-8">No reviews yet.</p>
+                      <p className="text-gray-500 text-center py-8">
+                        No reviews yet. Be the first to review!
+                      </p>
                     ) : (
                       reviews.map((review) => (
                         <div key={review.id} className="border-b border-gray-200 pb-6">
+                          {/* Existing review rendering code */}
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center space-x-3">
                               <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
@@ -323,7 +481,14 @@ export default function ProductDetail() {
                             </div>
                             <div className="flex items-center">
                               {[...Array(5)].map((_, i) => (
-                                <Star key={i} className={`w-4 h-4 ${i < review.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+                                <Star
+                                  key={i}
+                                  className={`w-4 h-4 ${
+                                    i < review.rating
+                                      ? "text-yellow-400 fill-yellow-400"
+                                      : "text-gray-300"
+                                  }`}
+                                />
                               ))}
                             </div>
                           </div>

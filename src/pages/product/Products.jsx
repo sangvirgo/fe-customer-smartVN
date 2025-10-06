@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ChevronRight, Star, SlidersHorizontal, X } from "lucide-react";
-import Header from "../../components/Header";
 import axiosInstance from "../../services/axios";
 import { showToast } from "../../components/Toast";
 
@@ -260,8 +259,6 @@ export default function Products() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-gray-900">
