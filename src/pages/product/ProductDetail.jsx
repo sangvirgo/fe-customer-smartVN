@@ -13,6 +13,7 @@ import Header from "../../components/Header";
 import axiosInstance from "../../services/axios";
 import { addToCart } from "../../utils/cart";
 import { showToast } from "../../components/Toast";
+import ProductCard from "../../components/ProductCard";
 
 export default function ProductDetail() {
   const { id } = useParams()
@@ -23,15 +24,19 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true)
   const [selectedImage, setSelectedImage] = useState(0)
   const [selectedSize, setSelectedSize] = useState(null)
-  const [selectedStore, setSelectedStore] = useState(null)
+  const [selectedStoreVariant, setSelectedStoreVariant] = useState(null);
   const [activeTab, setActiveTab] = useState("description")
-  const [expandedSpecs, setExpandedSpecs] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [showReviewForm, setShowReviewForm] = useState(false)
+  const [reviewForm, setReviewForm] = useState({ rating: 5, content: "" })
+  const [submittingReview, setSubmittingReview] = useState(false)
+  const [hasUserReviewed, setHasUserReviewed] = useState(false)
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken")
     setIsLoggedIn(!!token)
     fetchProductDetails()
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, [id])
 
   const fetchProductDetails = async () => {
@@ -42,23 +47,26 @@ export default function ProductDetail() {
         axiosInstance.get(`/products/${id}/reviews`),
       ])
 
-      setProduct(productRes.data)
-      setReviews(reviewsRes.data)
+      const productData = productRes.data.data 
+      const reviewsData = reviewsRes.data.data.content 
+      
+      setProduct(productData)
+      setReviews(reviewsData)
 
-      // Set default selections
-      if (productRes.data.sizes?.length > 0) {
-        setSelectedSize(productRes.data.sizes[0])
-      }
-      if (productRes.data.stores?.length > 0) {
-        setSelectedStore(productRes.data.stores[0])
+      if (productData.priceVariants?.length > 0) {
+        const uniqueSizes = [...new Set(productData.priceVariants.map(v => v.size))]
+        const initialSize = uniqueSizes[0];
+        setSelectedSize(initialSize);
+        
+        const firstVariantForSize = productData.priceVariants.find(v => v.size === initialSize);
+        setSelectedStoreVariant(firstVariantForSize);
       }
 
-      // Fetch related products
-      if (productRes.data.categoryId) {
+      if (productData.categoryId) {
         const relatedRes = await axiosInstance.get(
-          `/products?category=${productRes.data.categoryId}&limit=4&exclude=${id}`,
+          `/products?page=0&size=4`
         )
-        setRelatedProducts(relatedRes.data.products || relatedRes.data)
+        setRelatedProducts(relatedRes.data.data.content || [])
       }
     } catch (error) {
       console.error("Error fetching product details:", error)
@@ -75,12 +83,12 @@ export default function ProductDetail() {
       return
     }
 
-    if (!selectedStore) {
+    if (!selectedStoreVariant) {
       showToast("Please select a store", "error")
       return
     }
 
-    addToCart(product, 1, selectedSize, selectedStore)
+    addToCart(product, 1, selectedSize, selectedStoreVariant)
     showToast("Added to cart successfully!", "success")
   }
 
@@ -89,23 +97,19 @@ export default function ProductDetail() {
       <div className="min-h-screen bg-gray-50">
         <Header />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="animate-pulse">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <div className="w-full h-96 bg-gray-200 rounded-lg"></div>
-                <div className="grid grid-cols-4 gap-2">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className="w-full h-24 bg-gray-200 rounded-lg"></div>
-                  ))}
+            <div className="animate-pulse grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                    <div className="w-full h-96 bg-gray-200 rounded-lg"></div>
+                    <div className="grid grid-cols-4 gap-2">
+                        {[...Array(4)].map((_, i) => <div key={i} className="w-full h-24 bg-gray-200 rounded-lg"></div>)}
+                    </div>
                 </div>
-              </div>
-              <div className="space-y-4">
-                <div className="h-8 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-6 bg-gray-200 rounded w-1/2"></div>
-                <div className="h-12 bg-gray-200 rounded w-1/3"></div>
-              </div>
+                <div className="space-y-4">
+                    <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+                    <div className="h-6 bg-gray-200 rounded w-1/2"></div>
+                    <div className="h-12 bg-gray-200 rounded w-1/3"></div>
+                </div>
             </div>
-          </div>
         </div>
       </div>
     )
@@ -115,44 +119,31 @@ export default function ProductDetail() {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
+        <div className="max-w-7xl mx-auto py-8 text-center">
           <p className="text-gray-500 text-lg">Product not found</p>
         </div>
       </div>
     )
   }
+  
+  const uniqueSizes = product.priceVariants ? [...new Set(product.priceVariants.map(v => v.size))] : [];
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Breadcrumb */}
-        <nav className="flex items-center space-x-2 text-sm text-gray-600 mb-6">
-          <Link to="/" className="hover:text-blue-600">
-            Home
-          </Link>
-          <span>/</span>
-          <Link to="/products" className="hover:text-blue-600">
-            Products
-          </Link>
-          <span>/</span>
-          <span className="text-gray-900">{product.title}</span>
-        </nav>
-
-        {/* Product Details */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
           {/* Image Gallery */}
           <div>
             <div className="bg-white rounded-lg overflow-hidden mb-4">
               <img
-                src={product.images?.[selectedImage] || product.image || "/placeholder.svg?height=600&width=600"}
+                src={product.imageUrls?.[selectedImage] || "/placeholder.svg"}
                 alt={product.title}
                 className="w-full h-96 object-cover"
               />
             </div>
             <div className="grid grid-cols-4 gap-2">
-              {(product.images || [product.image]).map((image, index) => (
+              {(product.imageUrls || []).map((image, index) => (
                 <button
                   key={index}
                   onClick={() => setSelectedImage(index)}
@@ -161,7 +152,7 @@ export default function ProductDetail() {
                   }`}
                 >
                   <img
-                    src={image || "/placeholder.svg?height=150&width=150"}
+                    src={image}
                     alt={`${product.title} ${index + 1}`}
                     className="w-full h-24 object-cover"
                   />
@@ -178,29 +169,28 @@ export default function ProductDetail() {
               <div className="flex items-center space-x-4 mb-4">
                 <div className="flex items-center">
                   {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`w-5 h-5 ${
-                        i < Math.floor(product.rating || 0) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"
-                      }`}
-                    />
+                    <Star key={i} className={`w-5 h-5 ${i < Math.floor(product.averageRating || 0) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
                   ))}
                 </div>
                 <span className="text-gray-600">
-                  {product.rating?.toFixed(1)} ({reviews.length} reviews)
+                  {product.averageRating?.toFixed(1)} ({product.reviewCount || 0} reviews)
                 </span>
               </div>
             </div>
 
             {/* Size Selection */}
-            {product.sizes && product.sizes.length > 0 && (
+            {uniqueSizes.length > 0 && (
               <div>
                 <h3 className="font-semibold text-gray-900 mb-3">Select Size</h3>
                 <div className="flex flex-wrap gap-2">
-                  {product.sizes.map((size) => (
+                  {uniqueSizes.map((size) => (
                     <button
                       key={size}
-                      onClick={() => setSelectedSize(size)}
+                      onClick={() => {
+                        setSelectedSize(size);
+                        const firstVariantWithSize = product.priceVariants.find(v => v.size === size);
+                        setSelectedStoreVariant(firstVariantWithSize);
+                      }}
                       className={`px-4 py-2 border-2 rounded-lg font-medium transition-all ${
                         selectedSize === size
                           ? "border-blue-600 bg-blue-50 text-blue-600"
@@ -215,38 +205,56 @@ export default function ProductDetail() {
             )}
 
             {/* Store Selection */}
-            {product.stores && product.stores.length > 0 && (
+            {product.priceVariants && product.priceVariants.length > 0 && (
               <div>
                 <h3 className="font-semibold text-gray-900 mb-3">Available at Stores</h3>
                 <div className="space-y-3">
-                  {product.stores.map((store) => (
-                    <div
-                      key={store.id}
-                      onClick={() => setSelectedStore(store)}
-                      className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                        selectedStore?.id === store.id
-                          ? "border-blue-600 bg-blue-50"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
-                          <Store className="w-5 h-5 text-gray-600" />
-                          <span className="font-semibold text-gray-900">{store.name}</span>
+                  {product.priceVariants
+                    .filter(v => v.size === selectedSize)
+                    .map((variant) => (
+                      <div
+                        key={variant.inventoryId}
+                        onClick={() => setSelectedStoreVariant(variant)}
+                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                          selectedStoreVariant?.inventoryId === variant.inventoryId
+                            ? "border-blue-600 bg-blue-50"
+                            : "border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <Store className="w-5 h-5 text-gray-600" />
+                            <span className="font-semibold text-gray-900">{variant.storeName}</span>
+                          </div>
+                          <div className="text-right">
+                            {variant.discountPercent > 0 ? (
+                              <>
+                                <span className="text-sm text-gray-400 line-through block">
+                                  {variant.price.toLocaleString()}đ
+                                </span>
+                                <span className="text-2xl font-bold text-red-600">
+                                  {variant.discountedPrice.toLocaleString()}đ
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-2xl font-bold text-blue-600">
+                                {variant.price.toLocaleString()}đ
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-2xl font-bold text-blue-600">${store.price}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center space-x-1 text-gray-600">
-                          <MapPin className="w-4 h-4" />
-                          <span>{store.location}</span>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className={`font-medium ${variant.inStock ? "text-green-600" : "text-red-600"}`}>
+                            {variant.inStock ? `${variant.quantity} in stock` : "Out of stock"}
+                          </span>
+                           {variant.discountPercent > 0 && (
+                            <span className="bg-red-100 text-red-600 px-2 py-1 rounded text-xs font-bold">
+                              -{variant.discountPercent}%
+                            </span>
+                          )}
                         </div>
-                        <span className={`font-medium ${store.stock > 0 ? "text-green-600" : "text-red-600"}`}>
-                          {store.stock > 0 ? `${store.stock} in stock` : "Out of stock"}
-                        </span>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </div>
             )}
@@ -255,138 +263,77 @@ export default function ProductDetail() {
             <div className="flex space-x-4">
               <button
                 onClick={handleAddToCart}
-                disabled={!selectedStore || selectedStore.stock === 0}
+                disabled={!selectedStoreVariant || !selectedStoreVariant.inStock}
                 className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ShoppingCart className="w-5 h-5" />
                 <span>{isLoggedIn ? "Add to Cart" : "Login to Add to Cart"}</span>
               </button>
-              <button className="p-3 border-2 border-gray-300 rounded-lg hover:border-red-500 hover:text-red-500 transition-colors">
-                <Heart className="w-6 h-6" />
-              </button>
-              <button className="p-3 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:text-blue-500 transition-colors">
-                <Share2 className="w-6 h-6" />
-              </button>
             </div>
-
-            {!isLoggedIn && (
-              <div className="flex items-start space-x-2 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-yellow-800">
-                  Please{" "}
-                  <Link to="/login" className="font-semibold underline">
-                    login
-                  </Link>{" "}
-                  to add items to your cart and checkout.
-                </p>
-              </div>
-            )}
           </div>
         </div>
 
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow-sm mb-8">
-          <div className="border-b border-gray-200">
-            <div className="flex space-x-8 px-6">
-              <button
-                onClick={() => setActiveTab("description")}
-                className={`py-4 font-semibold border-b-2 transition-colors ${
-                  activeTab === "description"
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                Description
-              </button>
-              <button
-                onClick={() => setActiveTab("specifications")}
-                className={`py-4 font-semibold border-b-2 transition-colors ${
-                  activeTab === "specifications"
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                Specifications
-              </button>
-              <button
-                onClick={() => setActiveTab("reviews")}
-                className={`py-4 font-semibold border-b-2 transition-colors ${
-                  activeTab === "reviews"
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                Reviews ({reviews.length})
-              </button>
-            </div>
-          </div>
-
-          <div className="p-6">
-            {activeTab === "description" && (
-              <div className="prose max-w-none">
-                <p className="text-gray-700 leading-relaxed">{product.description}</p>
-              </div>
-            )}
-
-            {activeTab === "specifications" && (
-              <div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {product.specifications?.map((spec, index) => (
-                    <div key={index} className="flex justify-between py-3 border-b border-gray-200">
-                      <span className="font-medium text-gray-900">{spec.name}</span>
-                      <span className="text-gray-600">{spec.value}</span>
-                    </div>
-                  ))}
+            <div className="border-b border-gray-200">
+                <div className="flex space-x-8 px-6">
+                <button onClick={() => setActiveTab("description")} className={`py-4 font-semibold border-b-2 transition-colors ${activeTab === "description" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-600 hover:text-gray-900"}`}>Description</button>
+                <button onClick={() => setActiveTab("specifications")} className={`py-4 font-semibold border-b-2 transition-colors ${activeTab === "specifications" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-600 hover:text-gray-900"}`}>Details</button>
+                <button onClick={() => setActiveTab("reviews")} className={`py-4 font-semibold border-b-2 transition-colors ${activeTab === "reviews" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-600 hover:text-gray-900"}`}>Reviews ({reviews.length})</button>
                 </div>
-              </div>
-            )}
-
-            {activeTab === "reviews" && (
-              <div className="space-y-6">
-                {!isLoggedIn && (
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-800">
-                      <Link to="/login" className="font-semibold underline">
-                        Login
-                      </Link>{" "}
-                      to write a review
-                    </p>
+            </div>
+            <div className="p-6">
+                {activeTab === "description" && <div className="prose max-w-none"><p className="text-gray-700 leading-relaxed">{product.description}</p></div>}
+                {activeTab === "specifications" && (
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="border-b py-2"><span className="font-semibold">Brand:</span><span className="ml-2 text-gray-600">{product.brand}</span></div>
+                            <div className="border-b py-2"><span className="font-semibold">Color:</span><span className="ml-2 text-gray-600">{product.color}</span></div>
+                            <div className="border-b py-2"><span className="font-semibold">Weight:</span><span className="ml-2 text-gray-600">{product.weight}</span></div>
+                            <div className="border-b py-2"><span className="font-semibold">Dimension:</span><span className="ml-2 text-gray-600">{product.dimension}</span></div>
+                            <div className="border-b py-2"><span className="font-semibold">RAM:</span><span className="ml-2 text-gray-600">{product.ramCapacity}</span></div>
+                            <div className="border-b py-2"><span className="font-semibold">Storage:</span><span className="ml-2 text-gray-600">{product.romCapacity}</span></div>
+                            <div className="border-b py-2"><span className="font-semibold">Screen:</span><span className="ml-2 text-gray-600">{product.screenSize}</span></div>
+                            <div className="border-b py-2"><span className="font-semibold">Battery:</span><span className="ml-2 text-gray-600">{product.batteryCapacity}</span></div>
+                        </div>
+                    </div>
+                )}
+                {activeTab === "reviews" && (
+                    <div className="space-y-6">
+                    {reviews.length === 0 ? (
+                      <p className="text-gray-500 text-center py-8">No reviews yet.</p>
+                    ) : (
+                      reviews.map((review) => (
+                        <div key={review.id} className="border-b border-gray-200 pb-6">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                                <span className="text-white font-semibold">
+                                  {review.userFirstName?.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="font-semibold text-gray-900">
+                                  {review.userFirstName} {review.userLastName}
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  {new Date(review.createdAt).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center">
+                              {[...Array(5)].map((_, i) => (
+                                <Star key={i} className={`w-4 h-4 ${i < review.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+                              ))}
+                            </div>
+                          </div>
+                          <p className="text-gray-700">{review.reviewContent}</p>
+                        </div>
+                      ))
+                    )}
                   </div>
                 )}
-
-                {reviews.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">No reviews yet. Be the first to review!</p>
-                ) : (
-                  reviews.map((review) => (
-                    <div key={review.id} className="border-b border-gray-200 pb-6">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                            <span className="text-white font-semibold">{review.userName?.charAt(0).toUpperCase()}</span>
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">{review.userName}</p>
-                            <p className="text-sm text-gray-500">{new Date(review.createdAt).toLocaleDateString()}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`w-4 h-4 ${
-                                i < review.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-gray-700">{review.comment}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
+            </div>
         </div>
 
         {/* Related Products */}
@@ -395,26 +342,7 @@ export default function ProductDetail() {
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Related Products</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {relatedProducts.map((relatedProduct) => (
-                <Link
-                  key={relatedProduct.id}
-                  to={`/products/${relatedProduct.id}`}
-                  className="bg-white rounded-lg shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group"
-                >
-                  <div className="relative overflow-hidden">
-                    <img
-                      src={
-                        relatedProduct.images?.[0] || relatedProduct.image || "/placeholder.svg?height=300&width=300"
-                      }
-                      alt={relatedProduct.title}
-                      className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-300"
-                    />
-                  </div>
-                  <div className="p-4">
-                    <p className="text-sm text-gray-500 mb-1">{relatedProduct.brand}</p>
-                    <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{relatedProduct.title}</h3>
-                    <p className="text-lg font-bold text-blue-600">${relatedProduct.price}</p>
-                  </div>
-                </Link>
+                <ProductCard key={relatedProduct.id} product={relatedProduct} />
               ))}
             </div>
           </div>

@@ -10,7 +10,6 @@ const productService = {
       secondLevelCategory = "",
       minPrice = "",
       maxPrice = "",
-    //   sort = 'quantitySold,desc'
     } = params
 
     const queryParams = new URLSearchParams()
@@ -23,17 +22,17 @@ const productService = {
     if (maxPrice) queryParams.append("maxPrice", maxPrice)
 
     const response = await axiosInstance.get(`/products?${queryParams.toString()}`)
-    return response.data
+    return response.data.data // Trả về data.data
   },
 
   getProductById: async (id) => {
     const response = await axiosInstance.get(`/products/${id}`)
-    return response.data
+    return response.data.data // Trả về data.data
   },
 
   getProductReviews: async (productId, page = 0, size = 10) => {
     const response = await axiosInstance.get(`/products/${productId}/reviews?page=${page}&size=${size}`)
-    return response.data
+    return response.data.data // Trả về data.data
   },
 
   createReview: async (productId, rating, content) => {
