@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { User, MapPin, Package, Star, Edit2, Plus, Trash2 } from "lucide-react";
-import axios from "../../services/axios";
+import userService from "../../services/userService";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { showToast } from "../../components/Toast";
 
 export default function Profile() {
   const [searchParams] = useSearchParams()
@@ -30,12 +31,12 @@ export default function Profile() {
   const fetchUserProfile = async () => {
     setIsLoading(true)
     try {
-      const response = await axios.get("/api/v1/users/profile")
-      setUser(response.data.data)
+      const response = await userService.getProfile()
+      setUser(response.data)
       setFormData({
-        firstName: response.data.data.firstName || "",
-        lastName: response.data.data.lastName || "",
-        phoneNumber: response.data.data.phoneNumber || "",
+        firstName: response.data.firstName || "",
+        lastName: response.data.lastName || "",
+        phoneNumber: response.data.phoneNumber || "",
       })
     } catch (error) {
       console.error("Failed to fetch profile:", error)
@@ -46,8 +47,8 @@ export default function Profile() {
 
   const fetchAddresses = async () => {
     try {
-      const response = await axios.get("/api/v1/users/address")
-      setAddresses(response.data.data || [])
+      const response = await userService.getAddresses()
+      setAddresses(response.data || [])
     } catch (error) {
       console.error("Failed to fetch addresses:", error)
     }
@@ -56,18 +57,12 @@ export default function Profile() {
   const handleUpdateProfile = async (e) => {
     e.preventDefault()
     try {
-      await axios.put("/api/v1/users/profile/update", formData)
-      const event = new CustomEvent("showToast", {
-        detail: { message: "Profile updated successfully!", type: "success" },
-      })
-      window.dispatchEvent(event)
+      await userService.updateProfile(formData.firstName, formData.lastName, formData.phoneNumber)
+      showToast("Profile updated successfully!", "success")
       setIsEditing(false)
       fetchUserProfile()
     } catch (error) {
-      const event = new CustomEvent("showToast", {
-        detail: { message: error.response?.data?.message || "Failed to update profile", type: "error" },
-      })
-      window.dispatchEvent(event)
+      showToast(error.message || "Failed to update profile", "error")
     }
   }
 
@@ -253,7 +248,17 @@ export default function Profile() {
                           </div>
                         </div>
                         <p className="text-sm text-gray-600">{address.phoneNumber}</p>
-                        <p className="text-sm text-gray-600 mt-2">{address.fullAddress}</p>
+                        {/* Concatenate address parts */}
+                        <p className="text-sm text-gray-600 mt-2">
+                          {[address.street, address.ward, address.province]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </p>
+                        {address.note && (
+                          <p className="text-xs text-gray-500 mt-1 italic">
+                            <span className="font-medium">Note:</span> {address.note}
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>

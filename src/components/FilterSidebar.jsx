@@ -20,12 +20,14 @@ export default function FilterSidebar({ onFilterChange, currentFilters = {} }) {
     }
   }, [])
 
-  const fetchCategories = async () => {
+    const fetchCategories = async () => {
     try {
-      const response = await axiosInstance.get("/api/v1/categories")
-      setCategories(response.data.data || response.data || [])
+      const response = await axiosInstance.get("/categories")
+      const categoriesData = response.data?.data || []
+      setCategories(Array.isArray(categoriesData) ? categoriesData : [])
     } catch (error) {
       console.error("Error fetching categories:", error)
+      setCategories([])
     }
   }
 

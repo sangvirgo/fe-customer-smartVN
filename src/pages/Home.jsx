@@ -10,6 +10,7 @@ import {
 import Header from "../components/Header";
 import ProductCard from "../components/ProductCard";
 import axiosInstance from "../services/axios";
+import { showToast } from "../components/Toast";
 
 export default function Home() {
   const [categories, setCategories] = useState([]);
@@ -25,16 +26,22 @@ export default function Home() {
       setLoading(true);
       const [categoriesRes, productsRes] = await Promise.all([
         axiosInstance.get("/categories"),
-        axiosInstance.get("/products", { params: { size: 8, sort: 'quantitySold,desc' } }),
+        axiosInstance.get("/products", { params: { size: 8 } }), // Bỏ sort
       ]);
 
-      const categoriesData = categoriesRes.data?.data || [];
+      console.log("Categories response:", categoriesRes.data); // Debug
+      console.log("Products response:", productsRes.data); // Debug
+
+      const categoriesData = Array.isArray(categoriesRes.data?.data) 
+        ? categoriesRes.data.data 
+        : [];
       const productsData = productsRes.data?.data?.content || [];
 
       setCategories(categoriesData.filter(c => c.level === 1).slice(0, 6));
       setFeaturedProducts(productsData);
     } catch (error) {
       console.error("Error fetching home data:", error);
+      showToast(error.message || "Failed to load data", "error");
     } finally {
       setLoading(false);
     }

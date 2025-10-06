@@ -38,10 +38,11 @@ axiosInstance.interceptors.response.use(
       }
 
       // Return error message from API or default message
-      return Promise.reject(data.message || "An error occurred")
+      const errorMessage = data?.message || "An error occurred"
+      return Promise.reject(new Error(errorMessage))
     }
 
-    return Promise.reject("Network error. Please try again.")
+    return Promise.reject(new Error("Network error. Please try again."))
   },
 )
 

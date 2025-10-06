@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import axios from "../../services/axios";
+import authService from "../../services/authService";
 import { showToast } from "../../components/Toast";
 
 export default function ForgotPassword() {
@@ -34,11 +34,9 @@ export default function ForgotPassword() {
     setLoading(true)
 
     try {
-      const response = await axios.post("/api/v1/auth/register/resend-otp", {
-        email,
-      })
+      const response = await authService.forgotPassword(email)
 
-      showToast(response.data.message || "OTP sent to your email!", "success")
+      showToast(response.message || "OTP sent to your email!", "success")
       setStep(2)
       setCountdown(60)
     } catch (error) {
@@ -109,13 +107,9 @@ export default function ForgotPassword() {
     setLoading(true)
 
     try {
-      const response = await axios.post("/api/v1/auth/register/forgot-password", {
-        email,
-        otp: otp.join(""),
-        newPassword: passwords.newPassword,
-      })
+      const response = await authService.resetPassword(email, otp.join(""), passwords.newPassword)
 
-      showToast(response.data.message || "Password reset successfully!", "success")
+      showToast(response.message || "Password reset successfully!", "success")
       navigate("/login")
     } catch (error) {
       showToast(error.message || "Failed to reset password. Please try again.", "error")
@@ -130,11 +124,9 @@ export default function ForgotPassword() {
     setLoading(true)
 
     try {
-      const response = await axios.post("/api/v1/auth/register/resend-otp", {
-        email,
-      })
+      const response = await authService.forgotPassword(email)
 
-      showToast(response.data.message || "OTP sent successfully!", "success")
+      showToast(response.message || "OTP sent successfully!", "success")
       setCountdown(60)
       setOtp(["", "", "", "", "", ""])
       inputRefs.current[0]?.focus()

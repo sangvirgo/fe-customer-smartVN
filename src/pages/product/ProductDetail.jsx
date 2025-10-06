@@ -38,8 +38,8 @@ export default function ProductDetail() {
     try {
       setLoading(true)
       const [productRes, reviewsRes] = await Promise.all([
-        axiosInstance.get(`/api/v1/products/${id}`),
-        axiosInstance.get(`/api/v1/products/${id}/reviews`),
+        axiosInstance.get(`/products/${id}`),
+        axiosInstance.get(`/products/${id}/reviews`),
       ])
 
       setProduct(productRes.data)
@@ -56,7 +56,7 @@ export default function ProductDetail() {
       // Fetch related products
       if (productRes.data.categoryId) {
         const relatedRes = await axiosInstance.get(
-          `/api/v1/products?category=${productRes.data.categoryId}&limit=4&exclude=${id}`,
+          `/products?category=${productRes.data.categoryId}&limit=4&exclude=${id}`,
         )
         setRelatedProducts(relatedRes.data.products || relatedRes.data)
       }

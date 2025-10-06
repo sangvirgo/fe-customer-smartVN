@@ -27,7 +27,7 @@ export default function OrderDetail() {
   const fetchOrderDetail = async () => {
     setIsLoading(true)
     try {
-      const response = await axios.get(`/api/v1/orders/${orderId}`)
+      const response = await axios.get(`/orders/${orderId}`)
       setOrder(response.data.data)
     } catch (error) {
       console.error("Failed to fetch order:", error)
@@ -67,7 +67,7 @@ export default function OrderDetail() {
     if (!confirm("Are you sure you want to cancel this order?")) return
 
     try {
-      await axios.put(`/api/v1/orders/${orderId}/cancel`)
+      await axios.put(`/orders/${orderId}/cancel`)
       const event = new CustomEvent("showToast", {
         detail: { message: "Order cancelled successfully", type: "success" },
       })

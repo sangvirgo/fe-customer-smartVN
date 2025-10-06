@@ -10,7 +10,7 @@ const productService = {
       secondLevelCategory = "",
       minPrice = "",
       maxPrice = "",
-      sort = "popular",
+    //   sort = 'quantitySold,desc'
     } = params
 
     const queryParams = new URLSearchParams()

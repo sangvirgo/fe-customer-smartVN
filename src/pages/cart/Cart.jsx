@@ -25,7 +25,7 @@ export default function Cart() {
   const fetchCart = async () => {
     try {
       setLoading(true)
-      const response = await axiosInstance.get("/api/v1/cart")
+      const response = await axiosInstance.get("/cart")
       setCartItems(response.data.data.items || [])
     } catch (err) {
       setError(err.message || "Failed to load cart")
@@ -39,7 +39,7 @@ export default function Cart() {
 
     try {
       setUpdating(true)
-      await axiosInstance.put(`/api/v1/cart/items/${itemId}`, {
+      await axiosInstance.put(`/cart/items/${itemId}`, {
         quantity: newQuantity,
       })
       // Update local state
@@ -55,7 +55,7 @@ export default function Cart() {
   const removeItem = async (itemId) => {
     try {
       setUpdating(true)
-      await axiosInstance.delete(`/api/v1/cart/items/${itemId}`)
+      await axiosInstance.delete(`/cart/items/${itemId}`)
       setCartItems((prev) => prev.filter((item) => item.id !== itemId))
       window.dispatchEvent(new Event("cartUpdated"))
     } catch (err) {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import axios from "../../services/axios";
+import authService from "../../services/authService";
 import { showToast } from "../../components/Toast";
 
 export default function VerifyOtp() {
@@ -77,12 +77,9 @@ export default function VerifyOtp() {
     setLoading(true)
 
     try {
-      const response = await axios.post("/api/v1/auth/register/verify", {
-        email,
-        otp: otpString,
-      })
+      const response = await authService.verifyOtp(email, otpString)
 
-      showToast(response.data.message || "Email verified successfully!", "success")
+      showToast(response.message || "Email verified successfully!", "success")
       navigate("/login")
     } catch (error) {
       showToast(error.message || "Invalid OTP. Please try again.", "error")
@@ -97,11 +94,9 @@ export default function VerifyOtp() {
     setResendLoading(true)
 
     try {
-      const response = await axios.post("/api/v1/auth/register/resend-otp", {
-        email,
-      })
+      const response = await authService.resendOtp(email)
 
-      showToast(response.data.message || "OTP sent successfully!", "success")
+      showToast(response.message || "OTP sent successfully!", "success")
       setCountdown(60)
       setOtp(["", "", "", "", "", ""])
       inputRefs.current[0]?.focus()

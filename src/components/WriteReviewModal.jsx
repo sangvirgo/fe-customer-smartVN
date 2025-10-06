@@ -31,7 +31,7 @@ export default function WriteReviewModal({ isOpen, onClose, product, onSuccess }
     try {
       const user = JSON.parse(localStorage.getItem("user") || "{}")
       await axios.post(
-        `/api/v1/products/${product.id}/reviews`,
+        `/products/${product.id}/reviews`,
         { rating, content },
         {
           headers: {

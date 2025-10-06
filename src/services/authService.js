@@ -6,7 +6,7 @@ const authService = {
       email,
       password,
     })
-    return response.data
+    return response.data.data
   },
 
   register: async (firstName, lastName, email, password) => {

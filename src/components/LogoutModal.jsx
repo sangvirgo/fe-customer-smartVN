@@ -12,7 +12,7 @@ export default function LogoutModal({ isOpen, onClose }) {
   const handleLogout = async () => {
     setIsLoading(true)
     try {
-      await axios.post("/api/v1/auth/logout")
+      await axios.post("/auth/logout")
     } catch (error) {
       console.error("Logout error:", error)
     } finally {

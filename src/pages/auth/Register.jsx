@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import axios from "../../services/axios";
+import authService from "../../services/authService";
 import { showToast } from "../../components/Toast";
 
 export default function Register() {
@@ -49,14 +49,14 @@ export default function Register() {
     setLoading(true)
 
     try {
-      const response = await axios.post("/api/v1/auth/register", {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        password: formData.password,
-      })
+      const response = await authService.register(
+        formData.firstName,
+        formData.lastName,
+        formData.email,
+        formData.password,
+      )
 
-      showToast(response.data.message || "Registration successful! Please verify your email.", "success")
+      showToast(response.message || "Registration successful! Please verify your email.", "success")
       navigate("/verify-otp", { state: { email: formData.email } })
     } catch (error) {
       showToast(error.message || "Registration failed. Please try again.", "error")

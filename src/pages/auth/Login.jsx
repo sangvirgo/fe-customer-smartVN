@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import axios from "../../services/axios";
+import authService from "../../services/authService";
 import { showToast } from "../../components/Toast";
 
 
@@ -28,27 +28,16 @@ export default function Login() {
     setLoading(true)
 
     try {
-      const response = await axios.post("/api/v1/auth/login", {
-        email: formData.email,
-        password: formData.password,
-      })
-
-      const { accessToken, user } = response.data.data
+      const { accessToken, user } = await authService.login(formData.email, formData.password)
 
       // Store in localStorage
       localStorage.setItem("accessToken", accessToken)
       localStorage.setItem("user", JSON.stringify(user))
 
-      showToast(response.data.message || "Login successful!", "success")
+      showToast("Login successful!", "success")
       navigate("/")
     } catch (error) {
-      if (error.response?.status === 401) {
-        showToast("Invalid email or password", "error")
-      } else if (error.response?.status === 403) {
-        showToast("Your account has been banned or is inactive", "error")
-      } else {
         showToast(error.message || "Login failed. Please try again.", "error")
-      }
     } finally {
       setLoading(false)
     }

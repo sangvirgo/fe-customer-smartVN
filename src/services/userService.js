@@ -10,15 +10,16 @@ const userService = {
     const response = await axiosInstance.put("/users/profile/update", {
       firstName,
       lastName,
-      phoneNumber,
+      mobile: phoneNumber,
     })
     return response.data
   },
 
-  getAddresses: async () => {
+    getAddresses: async () => {
     const response = await axiosInstance.get("/users/address")
-    return response.data
-  },
+    // Backend trả về array trực tiếp, KHÔNG có wrapper { data: [...] }
+    return { data: response.data } // Wrap lại để consistent
+    },
 
   addAddress: async (addressData) => {
     const response = await axiosInstance.post("/users/addresses", addressData)
