@@ -3,11 +3,8 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   Star,
   ShoppingCart,
-  Heart,
-  Share2,
-  MapPin,
-  Store,
   AlertCircle,
+  Store,
 } from "lucide-react";
 import axiosInstance from "../../services/axios";
 import { addToCart } from "../../utils/cart";
@@ -32,38 +29,40 @@ export default function ProductDetail() {
   const [hasUserReviewed, setHasUserReviewed] = useState(false)
 
   useEffect(() => {
-    const token = localStorage.getItem("accessToken")
-    setIsLoggedIn(!!token)
     fetchProductDetails()
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [id])
 
-  const checkUserReview = (reviewsData) => {
-    if (!isLoggedIn) return false
-    
-    const currentUser = JSON.parse(localStorage.getItem("user") || "{}")
-    const userId = currentUser.id
-    
-    const userReview = reviewsData.find(r => r.userId === userId)
-    setHasUserReviewed(!!userReview)
-  }
-
   const fetchProductDetails = async () => {
     try {
       setLoading(true)
+      
+      // CHECK LOGIN TRƯỚỚC
+      const token = localStorage.getItem("accessToken")
+      const loggedIn = !!token
+      setIsLoggedIn(loggedIn)
+
       const [productRes, reviewsRes] = await Promise.all([
         axiosInstance.get(`/products/${id}`),
         axiosInstance.get(`/products/${id}/reviews`),
       ])
 
-      const productData = productRes.data.data 
-      const reviewsData = reviewsRes.data.data.content 
+      const productData = productRes.data.data
+      const reviewsData = reviewsRes.data.data.content
       
       setProduct(productData)
       setReviews(reviewsData)
+      console.log('reviewContent', reviewsData)
 
-      // Check nếu user đã review
-      checkUserReview(reviewsData)
+      // Check user đã review với loggedIn status
+      if (loggedIn) {
+        const currentUser = JSON.parse(localStorage.getItem("user") || "{}")
+        console.log("Current User:", currentUser) // Debug
+        console.log("Reviews Data:", reviewsData) // Debug
+        const userReview = reviewsData.find(r => r.userId === currentUser.id)
+        console.log("User Review Found:", userReview) // Debug
+        setHasUserReviewed(!!userReview)
+      }
 
       if (productData.priceVariants?.length > 0) {
         const uniqueSizes = [...new Set(productData.priceVariants.map(v => v.size))]
@@ -114,7 +113,7 @@ export default function ProductDetail() {
     }
   
     if (!reviewForm.content.trim()) {
-      showToast("Please write a review", "error")
+      showToast("Please write your review before submitting", "error")
       return
     }
   
@@ -126,9 +125,8 @@ export default function ProductDetail() {
         reviewContent: reviewForm.content
       })
   
-      showToast("Review submitted successfully!", "success")
+      showToast("Thank you! Your review has been submitted successfully.", "success")
       
-      // Reset form
       setReviewForm({ rating: 5, content: "" })
       setShowReviewForm(false)
       
@@ -136,11 +134,20 @@ export default function ProductDetail() {
       const reviewsRes = await axiosInstance.get(`/products/${id}/reviews`)
       const reviewsData = reviewsRes.data.data.content
       setReviews(reviewsData)
-      checkUserReview(reviewsData)
+      setHasUserReviewed(true) // Set trực tiếp luôn
       
     } catch (error) {
       console.error("Error submitting review:", error)
-      showToast(error.message || "Failed to submit review", "error")
+      
+      // Xử lý error messages thân thiện
+      const errorMsg = error.response?.data?.message || error.message
+      
+      if (errorMsg.includes("already reviewed")) {
+        showToast("You have already reviewed this product", "error")
+        setHasUserReviewed(true)
+      } else {
+        showToast("Unable to submit your review. Please try again.", "error")
+      }
     } finally {
       setSubmittingReview(false)
     }
@@ -351,21 +358,44 @@ export default function ProductDetail() {
                 )}
                 {activeTab === "reviews" && (
                   <div className="space-y-6">
-                    {/* Review Form - Chỉ hiện nếu logged in và chưa review */}
-                    {isLoggedIn && !hasUserReviewed && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                    {/* Nếu đã review - Hiện thông tin thay vì nút */}
+                    {isLoggedIn && hasUserReviewed ? (
+                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-300 rounded-lg p-6">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-green-900 text-lg">Thank you for your review!</h4>
+                            <p className="text-green-700 text-sm">You have already shared your experience with this product.</p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : isLoggedIn ? (
+                      // User logged in nhưng chưa review
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
                         {!showReviewForm ? (
-                          <button
-                            onClick={() => setShowReviewForm(true)}
-                            className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                          >
-                            Write a Review
-                          </button>
+                          <div className="text-center">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                              Share Your Experience
+                            </h3>
+                            <p className="text-gray-600 mb-4">
+                              Help others by sharing your thoughts about this product
+                            </p>
+                            <button
+                              onClick={() => setShowReviewForm(true)}
+                              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-300"
+                            >
+                              Write a Review
+                            </button>
+                          </div>
                         ) : (
                           <form onSubmit={handleSubmitReview} className="space-y-4">
-                            <h3 className="font-semibold text-gray-900">Write Your Review</h3>
+                            {/* Existing form content */}
+                            <h3 className="font-semibold text-gray-900 text-lg">Write Your Review</h3>
                             
-                            {/* Rating */}
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Rating
@@ -376,7 +406,7 @@ export default function ProductDetail() {
                                     key={star}
                                     type="button"
                                     onClick={() => setReviewForm({ ...reviewForm, rating: star })}
-                                    className="focus:outline-none"
+                                    className="focus:outline-none transition-transform hover:scale-110"
                                   >
                                     <Star
                                       className={`w-8 h-8 ${
@@ -387,13 +417,12 @@ export default function ProductDetail() {
                                     />
                                   </button>
                                 ))}
-                                <span className="ml-2 text-gray-600">
+                                <span className="ml-2 text-gray-600 font-medium">
                                   {reviewForm.rating} / 5
                                 </span>
                               </div>
                             </div>
 
-                            {/* Review Content */}
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Your Review
@@ -408,14 +437,23 @@ export default function ProductDetail() {
                               />
                             </div>
 
-                            {/* Buttons */}
                             <div className="flex space-x-3">
                               <button
                                 type="submit"
                                 disabled={submittingReview}
-                                className="flex-1 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                {submittingReview ? "Submitting..." : "Submit Review"}
+                                {submittingReview ? (
+                                  <span className="flex items-center justify-center">
+                                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Submitting...
+                                  </span>
+                                ) : (
+                                  "Submit Review"
+                                )}
                               </button>
                               <button
                                 type="button"
@@ -423,7 +461,7 @@ export default function ProductDetail() {
                                   setShowReviewForm(false)
                                   setReviewForm({ rating: 5, content: "" })
                                 }}
-                                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                                className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                               >
                                 Cancel
                               </button>
@@ -431,71 +469,81 @@ export default function ProductDetail() {
                           </form>
                         )}
                       </div>
-                    )}
-
-                    {/* Message nếu đã review */}
-                    {isLoggedIn && hasUserReviewed && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <p className="text-green-800">
-                          ✓ You have already reviewed this product
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Message nếu chưa login */}
-    								{!isLoggedIn && (
-                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-sm text-blue-800">
-                          <Link to="/login" className="font-semibold underline">
-                            Login
-                          </Link>{" "}
-                          to write a review
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Existing reviews */}
-                    {reviews.length === 0 ? (
-                      <p className="text-gray-500 text-center py-8">
-                        No reviews yet. Be the first to review!
-                      </p>
                     ) : (
-                      reviews.map((review) => (
-                        <div key={review.id} className="border-b border-gray-200 pb-6">
-                          {/* Existing review rendering code */}
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                                <span className="text-white font-semibold">
-                                  {review.userFirstName?.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                              <div>
-                                <p className="font-semibold text-gray-900">
-                                  {review.userFirstName} {review.userLastName}
-                                </p>
-                                <p className="text-sm text-gray-500">
-                                  {new Date(review.createdAt).toLocaleDateString()}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center">
-                              {[...Array(5)].map((_, i) => (
-                                <Star
-                                  key={i}
-                                  className={`w-4 h-4 ${
-                                    i < review.rating
-                                      ? "text-yellow-400 fill-yellow-400"
-                                      : "text-gray-300"
-                                  }`}
-                                />
-                              ))}
-                            </div>
+                      // Chưa login
+                      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-6">
+                        <div className="flex items-center space-x-3">
+                          <AlertCircle className="w-12 h-12 text-amber-600 flex-shrink-0" />
+                          <div>
+                            <h4 className="font-semibold text-amber-900 text-lg mb-1">
+                              Login Required
+                            </h4>
+                            <p className="text-amber-800">
+                              Please{" "}
+                              <Link to="/login" className="font-semibold underline hover:text-amber-900">
+                                login to your account
+                              </Link>{" "}
+                              to write a review for this product.
+                            </p>
                           </div>
-                          <p className="text-gray-700">{review.reviewContent}</p>
                         </div>
-                      ))
+                      </div>
                     )}
+
+                    {/* Existing reviews list */}
+                    <div className="mt-8">
+                      {reviews.length === 0 ? (
+                        <div className="text-center py-12 bg-gray-50 rounded-lg">
+                          <Star className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                          <p className="text-gray-500 text-lg font-medium">No reviews yet</p>
+                          <p className="text-gray-400 text-sm">Be the first to review this product!</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-6">
+                          <h3 className="text-xl font-bold text-gray-900">
+                            Customer Reviews ({reviews.length})
+                          </h3>
+                          {reviews.map((review) => (
+                            <div key={review.id} className="border-b border-gray-200 pb-6 last:border-0">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                                    <span className="text-white font-semibold">
+                                      {review.userFirstName?.charAt(0).toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold text-gray-900">
+                                      {review.userFirstName} {review.userLastName}
+                                    </p>
+                                    <p className="text-sm text-gray-500">
+                                      {new Date(review.createdAt).toLocaleDateString('en-US', { 
+                                        year: 'numeric', 
+                                        month: 'long', 
+                                        day: 'numeric' 
+                                      })}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      className={`w-4 h-4 ${
+                                        i < review.rating
+                                          ? "text-yellow-400 fill-yellow-400"
+                                          : "text-gray-300"
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                              <p className="text-gray-700 leading-relaxed">{review.reviewContent}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
             </div>
