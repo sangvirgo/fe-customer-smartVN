@@ -1,47 +1,79 @@
-import axiosInstance from "./axios"
+import axiosInstance from "./axios";
 
 const productService = {
   getProducts: async (params = {}) => {
     const {
       page = 0,
-      size = 20,
-      keyword = "",
-      topLevelCategory = "",
-      secondLevelCategory = "",
-      minPrice = "",
-      maxPrice = "",
-    } = params
+      size = 12, // Số lượng sản phẩm mỗi trang, có thể điều chỉnh
+      keyword, // Bỏ giá trị mặc định "" để không gửi param rỗng
+      topLevelCategory,
+      secondLevelCategory,
+      minPrice,
+      maxPrice,
+      sort, // Thêm tham số sort nếu cần
+    } = params;
 
-    const queryParams = new URLSearchParams()
-    queryParams.append("page", page)
-    queryParams.append("size", size)
-    if (keyword) queryParams.append("keyword", keyword)
-    if (topLevelCategory) queryParams.append("topLevelCategory", topLevelCategory)
-    if (secondLevelCategory) queryParams.append("secondLevelCategory", secondLevelCategory)
-    if (minPrice) queryParams.append("minPrice", minPrice)
-    if (maxPrice) queryParams.append("maxPrice", maxPrice)
+    const queryParams = new URLSearchParams({ page, size }); // Khởi tạo với page, size
 
-    const response = await axiosInstance.get(`/products?${queryParams.toString()}`)
-    return response.data.data // Trả về data.data
+    // Chỉ thêm param vào query nếu có giá trị
+    if (keyword) queryParams.append("keyword", keyword);
+    if (topLevelCategory) queryParams.append("topLevelCategory", topLevelCategory);
+    if (secondLevelCategory) queryParams.append("secondLevelCategory", secondLevelCategory);
+    if (minPrice !== undefined && minPrice !== null && minPrice !== '') queryParams.append("minPrice", minPrice);
+    if (maxPrice !== undefined && maxPrice !== null && maxPrice !== '') queryParams.append("maxPrice", maxPrice);
+    if (sort) queryParams.append("sort", sort); // Ví dụ: sort=price,asc hoặc sort=quantitySold,desc
+
+    try {
+      const response = await axiosInstance.get(`/products?${queryParams.toString()}`);
+      // Backend trả về ApiResponse<Page<ProductListingDTO>>
+      // Cấu trúc data mong muốn là Page Object: { content: [], totalElements, totalPages, number, size, ... }
+      return response.data.data;
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      throw error; // Ném lại lỗi để component xử lý
+    }
   },
 
   getProductById: async (id) => {
-    const response = await axiosInstance.get(`/products/${id}`)
-    return response.data.data // Trả về data.data
+    try {
+      const response = await axiosInstance.get(`/products/${id}`);
+      // Backend trả về ApiResponse<ProductDetailDTO>
+      return response.data.data; // Trả về ProductDetailDTO
+    } catch (error) {
+      console.error(`Error fetching product with ID ${id}:`, error);
+      throw error;
+    }
   },
 
-  getProductReviews: async (productId, page = 0, size = 10) => {
-    const response = await axiosInstance.get(`/products/${productId}/reviews?page=${page}&size=${size}`)
-    return response.data.data // Trả về data.data
+  getProductReviews: async (productId, page = 0, size = 5) => {
+    try {
+      const response = await axiosInstance.get(`/products/${productId}/reviews?page=${page}&size=${size}&sort=createdAt,desc`);
+      // Backend trả về ApiResponse<Page<ReviewDTO>>
+      return response.data.data; // Trả về Page<ReviewDTO>
+    } catch (error) {
+      console.error(`Error fetching reviews for product ${productId}:`, error);
+      throw error;
+    }
   },
 
-  createReview: async (productId, rating, content) => {
-    const response = await axiosInstance.post(`/products/${productId}/reviews`, {
-      rating,
-      content,
-    })
-    return response.data
+  // Đã sửa: Đổi tên param thành reviewContent, thêm productId vào URL
+  createReview: async (productId, rating, reviewContent) => {
+     if (!productId || rating === undefined || rating === null) {
+       throw new Error("Product ID and rating are required to create a review.");
+     }
+    try {
+      // Endpoint yêu cầu productId trong path
+      const response = await axiosInstance.post(`/products/${productId}/reviews`, {
+        rating: parseInt(rating, 10), // Đảm bảo rating là số nguyên
+        reviewContent, // Backend mong muốn trường này
+      });
+      // Backend trả về ApiResponse<Review>
+      return response.data; // Trả về { data: Review, message: "..." }
+    } catch (error) {
+       console.error(`Error creating review for product ${productId}:`, error);
+       throw error;
+    }
   },
-}
+};
 
-export default productService
+export default productService;
