@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
-import { User, MapPin, Package, Star, Edit2, Plus, Trash2, Loader2, Info, X } from "lucide-react"; // Added Info, X
+import { User, MapPin, Package, Star, Edit2, Plus, Trash2, Loader2, Info, X, ArrowLeft } from "lucide-react"; // Added Info, X, ArrowLeft
 import userService from "../../services/userService";
 import orderService from "../../services/orderService"; // Added orderService
 import { useNavigate, useSearchParams, Link } from "react-router-dom"; // Added Link
 import { showToast } from "../../components/Toast";
+import toast from 'react-hot-toast'; // Import toast
+
 
 // Add Address Modal Component (can be in a separate file)
 function AddAddressModal({ isOpen, onClose, onAddressAdded }) {
@@ -151,7 +153,8 @@ export default function Profile() {
     } else if (activeTab === "addresses") {
       fetchAddresses();
     } else if (activeTab === "orders") {
-       fetchOrders(); // Fetch orders when tab is active
+       // Fetch orders based on the CURRENT filter when the tab becomes active
+       fetchOrders(orderFilter === "ALL" ? null : orderFilter);
      }
     // Add logic for fetching reviews if needed
   }, [activeTab]); // Rerun effect when activeTab changes
@@ -198,20 +201,23 @@ export default function Profile() {
      }
   };
 
-   // Function to fetch orders based on filter
+   // **FIXED Function to fetch orders based on filter**
    const fetchOrders = async (status = null) => {
      setLoadingOrders(true);
      try {
        let response;
+       // ✅ Check if status is null or "ALL" to call the correct service
        if (!status || status === "ALL") {
-         response = await orderService.getUserOrders();
+         response = await orderService.getUserOrders(); // Call API without status param
        } else {
-         response = await orderService.getOrdersByStatus(status);
+         response = await orderService.getOrdersByStatus(status); // Call API with specific status
        }
        setOrders(response.orders || []); // Assuming the response has an 'orders' array
      } catch (error) {
-       console.error(`Failed to fetch orders with status ${status || 'ALL'}:`, error);
-       showToast(error.message || `Failed to load ${status || 'all'} orders`, "error");
+        // Log the specific error message from the backend if available
+       console.error(`Failed to fetch orders with status ${status || 'ALL'}:`, error.message);
+       // Show a user-friendly message, potentially including backend message
+       toast.error(error.message || `Failed to load ${status ? status.toLowerCase() : 'all'} orders`, "error");
        setOrders([]); // Clear orders on error
      } finally {
        setLoadingOrders(false);
@@ -228,15 +234,20 @@ export default function Profile() {
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
+    setIsLoading(true); // Indicate loading during update
     try {
       // Use the correct service function name and parameters
       const response = await userService.updateProfile(formData.firstName, formData.lastName, formData.phoneNumber);
-      showToast("Profile updated successfully!", "success");
-      setUser(response.data); // Update user state with the response data
+      // Backend returns ApiResponse<UserDTO>
+      showToast(response.message || "Profile updated successfully!", "success"); // Use message from response
+      setUser(response.data); // Update user state with the data from response.data
       setIsEditing(false);
-      // No need to call fetchUserProfile again if the service returns the updated user
+      // Update localStorage with new user data
+      localStorage.setItem("user", JSON.stringify(response.data));
     } catch (error) {
-      showToast(error.message || "Failed to update profile", "error");
+       toast.error(error.message || "Failed to update profile", "error");
+    } finally {
+       setIsLoading(false); // Stop loading indicator
     }
   };
 
@@ -272,7 +283,7 @@ export default function Profile() {
                  type="text"
                  value={formData.firstName}
                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                 disabled={!isEditing}
+                 disabled={!isEditing || isLoading} // Disable while loading too
                  className="w-full input-style disabled:bg-gray-100 disabled:cursor-not-allowed"
                />
              </div>
@@ -282,7 +293,7 @@ export default function Profile() {
                  type="text"
                  value={formData.lastName}
                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                 disabled={!isEditing}
+                 disabled={!isEditing || isLoading}
                  className="w-full input-style disabled:bg-gray-100 disabled:cursor-not-allowed"
                />
              </div>
@@ -302,7 +313,7 @@ export default function Profile() {
                type="tel"
                value={formData.phoneNumber || ""}
                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-               disabled={!isEditing}
+               disabled={!isEditing || isLoading}
                className="w-full input-style disabled:bg-gray-100 disabled:cursor-not-allowed"
              />
            </div>
@@ -310,7 +321,10 @@ export default function Profile() {
          <div className="mt-6">
            {isEditing ? (
              <div className="flex gap-3">
-               <button type="submit" className="btn-primary">Save Changes</button>
+               <button type="submit" disabled={isLoading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
+                   {isLoading && <Loader2 className="w-4 h-4 animate-spin"/>}
+                   Save Changes
+               </button>
                <button type="button" onClick={() => {
                  setIsEditing(false);
                  setFormData({ // Reset form on cancel
@@ -318,7 +332,7 @@ export default function Profile() {
                    lastName: user?.lastName || "",
                    phoneNumber: user?.mobile || "",
                  });
-               }} className="btn-secondary">Cancel</button>
+               }} className="btn-secondary" disabled={isLoading}>Cancel</button>
              </div>
            ) : (
              <button type="button" onClick={() => setIsEditing(true)} className="btn-primary flex items-center gap-2">
@@ -346,9 +360,9 @@ export default function Profile() {
              color: white;
              border-radius: 0.5rem; /* rounded-lg */
              font-weight: 500; /* font-medium */
-             transition: box-shadow 0.3s;
+             transition: box-shadow 0.3s, opacity 0.3s;
            }
-           .btn-primary:hover {
+           .btn-primary:hover:not(:disabled) {
              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* hover:shadow-lg */
            }
             .btn-secondary {
@@ -359,7 +373,7 @@ export default function Profile() {
              font-weight: 500;
              transition: background-color 0.2s;
            }
-           .btn-secondary:hover {
+           .btn-secondary:hover:not(:disabled) {
              background-color: #f9fafb; /* hover:bg-gray-50 */
            }
          `}</style>
@@ -391,8 +405,9 @@ export default function Profile() {
                  <h3 className="font-semibold text-gray-800">{address.fullName}</h3>
                  <div className="flex gap-2">
                    {/* Edit/Delete buttons (implement functionality later) */}
-                   <button className="text-blue-500 hover:text-blue-700 p-1"><Edit2 className="w-4 h-4" /></button>
-                   <button className="text-red-500 hover:text-red-700 p-1"><Trash2 className="w-4 h-4" /></button>
+                   {/* <button className="text-blue-500 hover:text-blue-700 p-1"><Edit2 className="w-4 h-4" /></button>
+                   <button className="text-red-500 hover:text-red-700 p-1"><Trash2 className="w-4 h-4" /></button> */}
+                    <span className="text-xs text-gray-400">(Edit/Delete coming soon)</span>
                  </div>
                </div>
                <p className="text-sm text-gray-600">{address.phoneNumber}</p>
@@ -459,7 +474,7 @@ export default function Profile() {
                    <div>
                      <p className="text-sm font-semibold text-gray-800">Order #{order.id}</p>
                      <p className="text-xs text-gray-500">
-                       Placed on: {new Date(order.createdAt).toLocaleDateString()}
+                       Placed on: {new Date(order.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                      </p>
                    </div>
                    <div className='flex items-center gap-4 mt-2 sm:mt-0'>
@@ -476,12 +491,12 @@ export default function Profile() {
                 {/* Simplified item display */}
                 {order.orderItems?.slice(0, 2).map((item) => ( // Show first 2 items
                    <div key={item.id} className="flex items-center gap-3 mb-2 text-sm">
-                      <img src={item.imageUrl || '/placeholder.svg'} alt={item.productTitle} className='w-10 h-10 object-cover rounded'/>
-                      <div className='flex-1'>
+                      <img src={item.imageUrl || '/placeholder.svg?w=40&h=40'} alt={item.productTitle} className='w-10 h-10 object-cover rounded bg-gray-100'/>
+                      <div className='flex-1 min-w-0'> {/* Added min-w-0 */}
                          <p className='text-gray-700 line-clamp-1'>{item.productTitle}</p>
                          <p className='text-xs text-gray-500'>Qty: {item.quantity} | Size: {item.size}</p>
                       </div>
-                      <p className='text-gray-800 font-medium'>{(item.discountedPrice || item.price).toLocaleString()}đ</p>
+                      <p className='text-gray-800 font-medium whitespace-nowrap'>{(item.discountedPrice || item.price).toLocaleString()}đ</p>
                    </div>
                  ))}
                  {order.orderItems?.length > 2 && (
@@ -501,22 +516,22 @@ export default function Profile() {
   // Helper functions for status colors (adjust colors as needed)
   const getStatusColor = (status) => {
     switch (status) {
-      case 'PENDING': return 'bg-yellow-100 text-yellow-800';
-      case 'CONFIRMED': return 'bg-blue-100 text-blue-800';
-      case 'SHIPPED': return 'bg-purple-100 text-purple-800';
-      case 'DELIVERED': return 'bg-green-100 text-green-800';
-      case 'CANCELLED': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'PENDING': return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+      case 'CONFIRMED': return 'bg-blue-100 text-blue-800 border border-blue-200';
+      case 'SHIPPED': return 'bg-purple-100 text-purple-800 border border-purple-200';
+      case 'DELIVERED': return 'bg-green-100 text-green-800 border border-green-200';
+      case 'CANCELLED': return 'bg-red-100 text-red-800 border border-red-200';
+      default: return 'bg-gray-100 text-gray-800 border border-gray-200';
     }
   };
   const getPaymentStatusColor = (status) => {
      switch (status) {
-       case 'PENDING': return 'bg-yellow-100 text-yellow-800';
-       case 'COMPLETED': return 'bg-green-100 text-green-800';
-       case 'FAILED': return 'bg-red-100 text-red-800';
-       case 'CANCELLED': return 'bg-gray-100 text-gray-800';
-       case 'REFUNDED': return 'bg-indigo-100 text-indigo-800';
-       default: return 'bg-gray-100 text-gray-800';
+       case 'PENDING': return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+       case 'COMPLETED': return 'bg-green-100 text-green-800 border border-green-200';
+       case 'FAILED': return 'bg-red-100 text-red-800 border border-red-200';
+       case 'CANCELLED': return 'bg-gray-100 text-gray-800 border border-gray-200';
+       case 'REFUNDED': return 'bg-indigo-100 text-indigo-800 border border-indigo-200';
+       default: return 'bg-gray-100 text-gray-800 border border-gray-200';
      }
    };
 

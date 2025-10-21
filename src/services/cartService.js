@@ -15,7 +15,7 @@ const cartService = {
     try {
       const response = await axiosInstance.get("/cart/me");
       // Backend trả về trực tiếp CartDTO (đã enrich thông tin sản phẩm)
-      return response.data.data; // Assuming data is nested under 'data' key based on other services
+      return response.data; // Assuming data is nested under 'data' key based on other services
     } catch (error) {
       console.error("Error fetching cart:", error);
       // Nếu lỗi 404 (Not Found) có thể là do user chưa có cart, trả về cart rỗng
