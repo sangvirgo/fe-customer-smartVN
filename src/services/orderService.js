@@ -56,7 +56,7 @@ const orderService = {
       // Backend trả về 400 nếu không có đơn hàng, cần xử lý khác với lỗi 500
       if (error.response && error.response.status === 400 && error.response.data?.code === 'EMPTY_ORDER') {
          console.log(`No orders found with status: ${orderStatus}`);
-         return { orders: [], messages: error.response.data.mess }; // Trả về mảng rỗng
+            return { orders: [], messages: error.response.data.message || "Không có đơn hàng" };
       }
       console.error(`Error fetching orders with status ${orderStatus}:`, error);
       throw error;

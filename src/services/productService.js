@@ -57,23 +57,38 @@ const productService = {
   },
 
   // Đã sửa: Đổi tên param thành reviewContent, thêm productId vào URL
-  createReview: async (productId, rating, reviewContent) => {
-     if (!productId || rating === undefined || rating === null) {
-       throw new Error("Product ID and rating are required to create a review.");
-     }
-    try {
-      // Endpoint yêu cầu productId trong path
-      const response = await axiosInstance.post(`/products/${productId}/reviews`, {
-        rating: parseInt(rating, 10), // Đảm bảo rating là số nguyên
-        reviewContent, // Backend mong muốn trường này
-      });
-      // Backend trả về ApiResponse<Review>
-      return response.data; // Trả về { data: Review, message: "..." }
-    } catch (error) {
-       console.error(`Error creating review for product ${productId}:`, error);
-       throw error;
+createReview: async (productId, rating, reviewContent) => {
+  if (!productId || rating === undefined || rating === null) {
+    throw new Error("Product ID and rating are required to create a review.");
+  }
+  
+  try {
+    // ✅ LẤY userId từ localStorage
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    if (!user.id) {
+      throw new Error("User not logged in");
     }
-  },
+    
+    const response = await axiosInstance.post(
+      `/products/${productId}/reviews`,
+      {
+        rating: parseInt(rating, 10),
+        reviewContent,
+      },
+      {
+        headers: {
+          "X-User-Id": user.id, // ✅ THÊM HEADER NÀY
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(`Error creating review for product ${productId}:`, error);
+    throw error;
+  }
+},
+
+
 };
 
 export default productService;

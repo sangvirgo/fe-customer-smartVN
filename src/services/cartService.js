@@ -52,21 +52,23 @@ const cartService = {
    * @param {number} quantity - Số lượng mới (nếu là 0, item sẽ bị xóa)
    * @returns {Promise<{message: string, cart?: CartDTO}>}
    */
-  updateCartItem: async (itemId, quantity) => {
-     if (itemId === undefined || itemId === null || quantity === undefined || quantity === null || quantity < 0) {
-       throw new Error("Item ID and non-negative quantity are required.");
-     }
-    try {
-      // Backend dùng AddItemRequest DTO, chỉ cần quantity
-      const response = await axiosInstance.put(`/cart/items/${itemId}`, { quantity });
-      // Backend trả về { message: "...", cart: CartDTO } nếu update
-      // hoặc { message: "..." } nếu xóa (quantity=0)
-      return response.data;
-    } catch (error) {
-      console.error(`Error updating cart item ${itemId}:`, error);
-      throw error;
+    updateCartItem: async (itemId, quantity, productId = null, size = null) => {
+    if (itemId === undefined || itemId === null || quantity < 0) {
+        throw new Error("Item ID and non-negative quantity are required.");
     }
-  },
+    try {
+        const payload = { quantity };
+        // Nếu backend validation yêu cầu đầy đủ, thêm:
+        if (productId) payload.productId = productId;
+        if (size) payload.size = size;
+        
+        const response = await axiosInstance.put(`/cart/items/${itemId}`, payload);
+        return response.data;
+    } catch (error) {
+        console.error(`Error updating cart item ${itemId}:`, error);
+        throw error;
+    }
+    },
 
   /**
    * Xóa item khỏi giỏ hàng

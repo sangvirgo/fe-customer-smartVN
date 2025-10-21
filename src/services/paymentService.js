@@ -74,6 +74,30 @@ const paymentService = {
     return <div>Đang xử lý thanh toán VNPay...</div>;
   }
   */
+
+
+  /**
+ * Parse VNPay callback params từ URL
+ * @param {URLSearchParams} searchParams
+ * @returns {{orderId: string, responseCode: string, transactionNo: string, success: boolean}}
+ */
+parseVNPayCallback: (searchParams) => {
+  const vnp_TxnRef = searchParams.get("vnp_TxnRef");
+  const vnp_ResponseCode = searchParams.get("vnp_ResponseCode");
+  const vnp_TransactionNo = searchParams.get("vnp_TransactionNo");
+  
+  // Extract orderId từ TxnRef (format: orderId_random)
+  const orderId = vnp_TxnRef?.split("_")[0];
+  
+  return {
+    orderId,
+    responseCode: vnp_ResponseCode,
+    transactionNo: vnp_TransactionNo,
+    success: vnp_ResponseCode === "00",
+    message: searchParams.get("vnp_Message") || 
+             (vnp_ResponseCode === "00" ? "Thanh toán thành công" : "Thanh toán thất bại"),
+  };
+},
 };
 
 export default paymentService;
