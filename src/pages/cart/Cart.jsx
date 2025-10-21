@@ -1,109 +1,98 @@
-"use client";
+"use client"; // Keep this if using Next.js specific features, otherwise remove
 
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import toast from 'react-hot-toast'; // Use react-hot-toast
 import {
   ShoppingCart,
   Trash2,
   Plus,
   Minus,
   ArrowRight,
+  Loader2, // Added for loading state
 } from "lucide-react";
-import axiosInstance from "../../services/axios";
+// Import cartService
+import cartService from "../../services/cartService";
 
 export default function Cart() {
-  const navigate = useNavigate()
-  const [cartItems, setCartItems] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [updating, setUpdating] = useState(false)
-  const [error, setError] = useState(null)
+  const navigate = useNavigate();
+  const [cart, setCart] = useState(null); // Store the whole cart object { items, totalOriginalPrice, etc. }
+  const [loading, setLoading] = useState(true);
+  const [updatingItemId, setUpdatingItemId] = useState(null); // Track which item is being updated/removed
 
   useEffect(() => {
-    fetchCart()
-  }, [])
+    fetchCart();
+  }, []);
 
   const fetchCart = async () => {
     try {
-      setLoading(true)
-      const response = await axiosInstance.get("/cart")
-      setCartItems(response.data.data.items || [])
+      setLoading(true);
+      const cartData = await cartService.getCart();
+      setCart(cartData);
     } catch (err) {
-      setError(err.message || "Failed to load cart")
+      toast.error(err.message || "Failed to load cart");
+      setCart({ items: [], totalOriginalPrice: 0, totalDiscountedPrice: 0, discount: 0 }); // Set empty cart on error
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const updateQuantity = async (itemId, newQuantity) => {
-    if (newQuantity < 1) return
+  const updateQuantity = async (item, newQuantity) => {
+     // Prevent updating below 1 or while another update is happening for this item
+    if (newQuantity < 1 || updatingItemId === item.id) return;
 
+    setUpdatingItemId(item.id);
     try {
-      setUpdating(true)
-      await axiosInstance.put(`/cart/items/${itemId}`, {
-        quantity: newQuantity,
-      })
-      // Update local state
-      setCartItems((prev) => prev.map((item) => (item.id === itemId ? { ...item, quantity: newQuantity } : item)))
-      window.dispatchEvent(new Event("cartUpdated"))
+      // Pass itemId, newQuantity, productId, and size
+      const response = await cartService.updateCartItem(item.id, newQuantity, item.productId, item.size);
+       // Fetch the updated cart from the backend for consistency
+       await fetchCart();
+      // Dispatch event for header update
+      window.dispatchEvent(new Event("cartUpdated"));
+      if(response.message) {
+         toast.success(response.message);
+      }
     } catch (err) {
-      setError(err.message || "Failed to update quantity")
+      toast.error(err.message || "Failed to update quantity");
+       // Optional: revert local state if API call fails (or rely on fetchCart)
     } finally {
-      setUpdating(false)
+      setUpdatingItemId(null);
     }
-  }
+  };
 
   const removeItem = async (itemId) => {
+     if (updatingItemId === itemId) return; // Prevent double clicks
+
+    setUpdatingItemId(itemId);
     try {
-      setUpdating(true)
-      await axiosInstance.delete(`/cart/items/${itemId}`)
-      setCartItems((prev) => prev.filter((item) => item.id !== itemId))
-      window.dispatchEvent(new Event("cartUpdated"))
+      const response = await cartService.removeCartItem(itemId);
+      // Fetch the updated cart from the backend
+       await fetchCart();
+      // Dispatch event for header update
+      window.dispatchEvent(new Event("cartUpdated"));
+      toast.success(response.message || 'Item removed');
     } catch (err) {
-      setError(err.message || "Failed to remove item")
+      toast.error(err.message || "Failed to remove item");
     } finally {
-      setUpdating(false)
+      setUpdatingItemId(null);
     }
-  }
+  };
 
-  const calculateSubtotal = () => {
-    return cartItems.reduce((total, item) => {
-      const price = item.discountedPrice || item.price
-      return total + price * item.quantity
-    }, 0)
-  }
-
-  const calculateShipping = () => {
-    // Group by store and calculate shipping per store
-    const stores = [...new Set(cartItems.map((item) => item.store?.id))]
-    return stores.length * 30000 // 30,000 VND per store
-  }
-
-  const calculateTotal = () => {
-    return calculateSubtotal() + calculateShipping()
-  }
-
-  // Group items by store
-  const groupedByStore = cartItems.reduce((acc, item) => {
-    const storeId = item.store?.id || "unknown"
-    if (!acc[storeId]) {
-      acc[storeId] = {
-        store: item.store,
-        items: [],
-      }
-    }
-    acc[storeId].items.push(item)
-    return acc
-  }, {})
+  // Use totals from the cart object fetched from the backend
+  const subtotal = cart?.totalDiscountedPrice ?? 0;
+  // Assuming backend doesn't provide shipping yet, or add if it does
+  const shipping = 0; // Replace with cart?.shippingFee if available
+  const total = subtotal + shipping;
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
       </div>
-    )
+    );
   }
 
-  if (cartItems.length === 0) {
+  if (!cart || !cart.cartItems || cart.cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
         <div className="text-center">
@@ -119,7 +108,7 @@ export default function Cart() {
           </Link>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -127,88 +116,115 @@ export default function Cart() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Shopping Cart</h1>
 
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">{error}</div>}
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
-          <div className="lg:col-span-2 space-y-6">
-            {Object.values(groupedByStore).map((group) => (
-              <div key={group.store?.id || "unknown"} className="bg-white rounded-xl shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-3 border-b">
-                  {group.store?.name || "Unknown Store"}
-                </h3>
+          {/* Cart Items List (Flat) */}
+          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-6 space-y-4">
+            {cart.cartItems.map((item) => (
+              <div key={item.id} className={`flex flex-col sm:flex-row gap-4 py-4 border-b last:border-b-0 ${updatingItemId === item.id ? 'opacity-50' : ''}`}>
+                <img
+                  // Use imageUrl from CartItemDTO
+                  src={item.imageUrl || "/placeholder.svg"}
+                  alt={item.productName} // Use productName from CartItemDTO
+                  className="w-full sm:w-24 h-auto sm:h-24 object-cover rounded-lg flex-shrink-0"
+                />
 
-                <div className="space-y-4">
-                  {group.items.map((item) => (
-                    <div key={item.id} className="flex gap-4 pb-4 border-b last:border-b-0">
-                      <img
-                        src={item.product?.images?.[0] || "/placeholder.svg"}
-                        alt={item.product?.title}
-                        className="w-24 h-24 object-cover rounded-lg"
-                      />
-
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900">{item.product?.title}</h4>
-                        <p className="text-sm text-gray-600">{item.product?.description}</p>
-                      </div>
-
-                      <div className="flex items-center gap-4">
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="bg-gray-200 text-gray-800 px-3 py-2 rounded-lg hover:bg-gray-300 transition-colors"
-                        >
-                          <Minus className="w-5 h-5" />
-                        </button>
-                        <span className="text-gray-900 font-semibold">{item.quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="bg-gray-200 text-gray-800 px-3 py-2 rounded-lg hover:bg-gray-300 transition-colors"
-                        >
-                          <Plus className="w-5 h-5" />
-                        </button>
-                      </div>
-
-                      <div className="text-gray-900 font-semibold">
-                        {(item.discountedPrice || item.price) * item.quantity} VND
-                      </div>
-
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className="bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 transition-colors"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
-                  ))}
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-gray-900 truncate">{item.productName}</h4>
+                  <p className="text-sm text-gray-600">Size: {item.size}</p>
+                   {/* Display original price if discounted */}
+                   {item.discountedPrice < item.price && (
+                      <p className="text-sm text-gray-400 line-through">
+                         {item.price.toLocaleString()}đ
+                      </p>
+                   )}
+                   <p className="text-sm font-medium text-blue-600">
+                     {(item.discountedPrice || item.price).toLocaleString()}đ / item
+                   </p>
                 </div>
+
+                {/* Quantity Controls */}
+                <div className="flex items-center gap-2 justify-center sm:justify-start">
+                  <button
+                    onClick={() => updateQuantity(item, item.quantity - 1)}
+                    disabled={updatingItemId === item.id || item.quantity <= 1}
+                    className="p-2 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Minus className="w-4 h-4 text-gray-700" />
+                  </button>
+                  <span className="text-gray-900 font-medium w-8 text-center">
+                     {updatingItemId === item.id ? <Loader2 className="w-4 h-4 animate-spin mx-auto"/> : item.quantity}
+                  </span>
+                  <button
+                    onClick={() => updateQuantity(item, item.quantity + 1)}
+                     disabled={updatingItemId === item.id} // Add stock check if needed from item details
+                    className="p-2 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50"
+                  >
+                    <Plus className="w-4 h-4 text-gray-700" />
+                  </button>
+                </div>
+
+                {/* Item Total Price */}
+                <div className="text-right sm:text-left font-semibold text-gray-900 w-full sm:w-auto mt-2 sm:mt-0">
+                  {((item.discountedPrice || item.price) * item.quantity).toLocaleString()}đ
+                </div>
+
+                 {/* Remove Button */}
+                <button
+                  onClick={() => removeItem(item.id)}
+                  disabled={updatingItemId === item.id}
+                  className="p-2 text-red-500 hover:text-red-700 rounded-md hover:bg-red-50 disabled:opacity-50 self-center sm:self-auto"
+                   title="Remove item"
+                >
+                   {updatingItemId === item.id ? <Loader2 className="w-5 h-5 animate-spin"/> : <Trash2 className="w-5 h-5" />}
+                </button>
               </div>
             ))}
           </div>
 
           {/* Summary */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Summary</h3>
-            <div className="flex justify-between mb-2">
-              <span className="text-gray-600">Subtotal</span>
-              <span className="text-gray-900 font-semibold">{calculateSubtotal()} VND</span>
-            </div>
-            <div className="flex justify-between mb-2">
-              <span className="text-gray-600">Shipping</span>
-              <span className="text-gray-900 font-semibold">{calculateShipping()} VND</span>
-            </div>
-            <div className="flex justify-between mb-4">
-              <span className="text-gray-900 font-semibold">Total</span>
-              <span className="text-gray-900 font-semibold">{calculateTotal()} VND</span>
+          <div className="bg-white rounded-xl shadow-sm p-6 h-fit sticky top-24">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4 border-b pb-3">Order Summary</h3>
+            <div className="space-y-3">
+              {/* Display Original Price if there's a discount */}
+               {cart.discount > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Original Total</span>
+                    <span className="text-gray-500 line-through">{cart.totalOriginalPrice.toLocaleString()}đ</span>
+                  </div>
+               )}
+                {/* Discount Amount */}
+               {cart.discount > 0 && (
+                  <div className="flex justify-between">
+                     <span className="text-green-600">Discount</span>
+                     <span className="text-green-600 font-medium">- {cart.discount.toLocaleString()}đ</span>
+                  </div>
+                )}
+               {/* Subtotal (Discounted Price) */}
+              <div className="flex justify-between">
+                <span className="text-gray-600">Subtotal</span>
+                <span className="text-gray-900 font-medium">{subtotal.toLocaleString()}đ</span>
+              </div>
+              {/* Shipping (example) */}
+              <div className="flex justify-between">
+                <span className="text-gray-600">Shipping</span>
+                <span className="text-gray-900 font-medium">{shipping > 0 ? `${shipping.toLocaleString()}đ` : 'Free'}</span>
+              </div>
+              {/* Total */}
+              <div className="flex justify-between border-t pt-3 mt-3">
+                <span className="text-lg font-bold text-gray-900">Total</span>
+                <span className="text-lg font-bold text-blue-600">{total.toLocaleString()}đ</span>
+              </div>
             </div>
             <button
               onClick={() => navigate("/checkout")}
-              className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={!cart?.cartItems?.length}
+              className="mt-6 w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all duration-300 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Proceed to Checkout
+              Proceed to Checkout <ArrowRight className="w-5 h-5" />
             </button>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }

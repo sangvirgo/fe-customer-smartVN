@@ -1,34 +1,37 @@
 import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
-import Header from "./components/Header"; // Giả sử bạn có Header component
-import Footer from "./components/Footer"; // Giả sử bạn có Footer component
-import Home from "./pages/Home"; // Trang chủ
-import Products from "./pages/Products";
-import ProductDetail from "./pages/ProductDetail";
-import Category from "./pages/Category"; // Trang danh mục/tìm kiếm
-import Cart from "./pages/Cart";
-import Checkout from "./pages/Checkout";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import VerifyOtp from "./pages/VerifyOtp";
-import ForgotPassword from "./pages/ForgotPassword";
-import Profile from "./pages/Profile";
-import OrderSuccess from "./pages/OrderSuccess";
-import OrderFailure from "./pages/OrderFailure";
-import ProtectedRoute from "./components/ProtectedRoute"; // Component bảo vệ route
-import ToastContainer from "./components/ToastContainer"; // Để hiển thị toast
+import { Toaster } from 'react-hot-toast'; // Import Toaster
+import Header from "./components/Header";
+import Footer from "./components/Footer";
+import Home from "./pages/Home";
+import Category from "./pages/product/Category"; // Updated path and used for /products
+import ProductDetail from "./pages/product/ProductDetail"; // Updated path
+import Cart from "./pages/cart/Cart"; // Updated path
+import Checkout from "./pages/order/Checkout"; // Updated path
+import Login from "./pages/auth/Login"; // Updated path
+import Register from "./pages/auth/Register"; // Updated path
+import VerifyOtp from "./pages/auth/VerifyOtp"; // Updated path
+import ForgotPassword from "./pages/auth/ForgotPassword"; // Updated path
+import Profile from "./pages/user/Profile"; // Updated path
+import OrderSuccess from "./pages/order/OrderSuccess"; // Updated path
+import OrderFailure from "./pages/order/OrderFailure"; // Updated path
+import OrderDetail from "./pages/order/OrderDetail"; // Added import
+import VNPayCallbackPage from "./pages/payment/VNPayCallbackPage"; // Added import
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
     <Router>
       <div className="flex flex-col min-h-screen">
-         <ToastContainer /> {/* Add Toast Container */}
+         <Toaster position="top-right" reverseOrder={false} /> {/* Add Toaster component */}
         <Header />
         <main className="flex-grow">
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/products" element={<Products />} />
+            {/* Use Category component for product listings */}
+            <Route path="/products" element={<Category />} />
+            <Route path="/category" element={<Category />} />
+             {/* End Use Category */}
             <Route path="/products/:id" element={<ProductDetail />} />
-            <Route path="/category" element={<Category />} /> {/* Route cho danh mục/tìm kiếm */}
             <Route path="/cart" element={
                <ProtectedRoute>
                   <Cart />
@@ -53,15 +56,19 @@ function App() {
                   <OrderSuccess />
                </ProtectedRoute>
              } />
-             {/* Có thể không cần ProtectedRoute nếu muốn hiển thị lỗi cho cả khách */}
              <Route path="/order/failure" element={
                <OrderFailure />
              } />
+             {/* Added OrderDetail Route */}
+             <Route path="/order/:orderId" element={
+               <ProtectedRoute>
+                 <OrderDetail />
+               </ProtectedRoute>
+             } />
+             {/* Added VNPay Callback Route */}
+             <Route path="/payment/vnpay-callback" element={<VNPayCallbackPage />} />
 
-             {/* Thêm route VNPay Callback (nếu FE cần xử lý redirect) */}
-             {/* <Route path="/payment/vnpay-callback" element={<VNPayCallbackPage />} /> */}
-
-            {/* Thêm route 404 */}
+            {/* Catch-all 404 Route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
@@ -71,9 +78,9 @@ function App() {
   );
 }
 
-// Basic NotFound component
+// Basic NotFound component (can be moved to its own file)
 const NotFound = () => (
-  <div className="text-center py-20">
+  <div className="text-center py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <h1 className="text-4xl font-bold mb-4">404 - Not Found</h1>
     <p>The page you are looking for does not exist.</p>
     <Link to="/" className="text-blue-600 hover:underline mt-4 inline-block">Go Home</Link>

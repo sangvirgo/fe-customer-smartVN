@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import toast from 'react-hot-toast'; // Use react-hot-toast
 import { CreditCard, MapPin, Package, ArrowLeft, Loader2 } from "lucide-react";
-import cartService from "../services/cartService";
-import userService from "../services/userService";
-import orderService from "../services/orderService";
-import paymentService from "../services/paymentService"; // Thêm paymentService
-import { showToast } from "../components/Toast";
+import cartService from "../../services/cartService"; // Corrected path
+import userService from "../../services/userService"; // Corrected path
+import orderService from "../../services/orderService"; // Corrected path
+import paymentService from "../../services/paymentService"; // Corrected path
+
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -29,85 +30,102 @@ export default function Checkout() {
         cartService.getCart(),
         userService.getAddresses(),
       ]);
+
+      // Check if cart is empty or invalid
+       if (!cartData || !cartData.cartItems || cartData.cartItems.length === 0) {
+           toast.error("Your cart is empty. Redirecting...");
+           navigate("/cart");
+           return; // Stop further execution
+       }
+
       setCart(cartData);
       setAddresses(addressesData || []); // Đảm bảo addressesData là mảng
-      if (addressesData && addressesData.length > 0) {
-        setSelectedAddressId(addressesData[0].id); // Chọn địa chỉ đầu tiên làm mặc định
+      // Select the first address only if addresses exist
+      if (addressesData && addressesData.length > 0 && !selectedAddressId) {
+        setSelectedAddressId(addressesData[0].id); // Chọn địa chỉ đầu tiên làm mặc định if none selected
       }
     } catch (error) {
-      showToast(error.message || "Failed to load checkout data", "error");
-      // Nếu không load được giỏ hàng, có thể quay về trang giỏ hàng
-      if (!cart) navigate("/cart");
+       toast.error(error.message || "Failed to load checkout data");
+       // If loading cart fails critically, redirect
+       if (error.config?.url?.includes('/cart/me')) {
+           navigate("/cart");
+       }
     } finally {
       setLoadingCart(false);
       setLoadingAddresses(false);
     }
   };
 
-  const calculateSubtotal = () => {
-    if (!cart?.cartItems) return 0;
-    return cart.cartItems.reduce((total, item) => {
-      const price = item.discountedPrice || item.price;
-      return total + price * item.quantity;
-    }, 0);
-  };
-
-  const calculateTotal = () => {
-    // Tạm thời chưa tính phí ship
-    return calculateSubtotal();
-  };
+   // Use cart data from state, avoid recalculating locally if backend provides totals
+  const subtotal = cart?.totalDiscountedPrice ?? 0;
+  const shipping = 0; // Replace with cart?.shippingFee if available
+  const total = subtotal + shipping;
 
   const handlePlaceOrder = async () => {
     if (!selectedAddressId) {
-      showToast("Please select a shipping address", "error");
+      toast.error("Please select a shipping address");
       return;
     }
     if (!cart || !cart.cartItems || cart.cartItems.length === 0) {
-      showToast("Your cart is empty", "error");
+      toast.error("Your cart is empty");
+      navigate('/cart'); // Redirect if cart somehow became empty
       return;
     }
 
     setIsPlacingOrder(true);
+    let createdOrder = null; // Variable to hold the order details
+
     try {
       const cartItemIds = cart.cartItems.map((item) => item.id);
+      // Pass payment method to createOrder service
       const orderResponse = await orderService.createOrder(
         selectedAddressId,
-        cartItemIds
+        cartItemIds,
+        paymentMethod // Pass paymentMethod here
       );
 
-      const createdOrder = orderResponse.order; // Lấy object order từ response
-      showToast(orderResponse.message || "Order placed successfully!", "success");
+       createdOrder = orderResponse.order; // Get order details from response
+       toast.success(orderResponse.message || "Order placed successfully!");
 
-      // Nếu thanh toán VNPay
-      if (paymentMethod === "VNPAY") {
+      // Clear local cart state and storage immediately after successful order creation
+      localStorage.removeItem("cart");
+      window.dispatchEvent(new Event("cartUpdated")); // Update header
+      setCart(null); // Clear local cart state
+
+
+      // If VNPAY, proceed to payment creation and redirect
+      if (paymentMethod === "VNPAY" && createdOrder) {
         try {
           const paymentResponse = await paymentService.createPayment(createdOrder.id);
           if (paymentResponse.success && paymentResponse.paymentUrl) {
-            // Chuyển hướng người dùng đến VNPay
-            window.location.href = paymentResponse.paymentUrl;
+            window.location.href = paymentResponse.paymentUrl; // Redirect to VNPay
+            // Don't navigate internally here, let VNPay handle the flow
+            return; // Stop execution after redirect
           } else {
-            showToast(paymentResponse.message || "Failed to create VNPay payment URL", "error");
-            // Có thể redirect về trang lỗi hoặc order history
-            navigate(`/order/failure?orderId=${createdOrder.id}`);
+             // Payment URL creation failed, show error and navigate to failure page with orderId
+             toast.error(paymentResponse.message || "Failed to create VNPay payment URL");
+             navigate(`/order/failure?orderId=${createdOrder.id}`);
           }
         } catch (paymentError) {
           console.error("Payment creation error:", paymentError);
-          showToast(paymentError.message || "Failed to initiate VNPay payment", "error");
-          navigate(`/order/failure?orderId=${createdOrder.id}`);
+          toast.error(paymentError.message || "Failed to initiate VNPay payment");
+          // Navigate to failure page even if payment initiation fails
+           navigate(`/order/failure?orderId=${createdOrder.id}`);
         }
-      } else {
-        // Nếu là COD, chuyển đến trang thành công
+      } else if (createdOrder) {
+        // If COD or other non-redirect methods, navigate to success page
         navigate(`/order/success?orderId=${createdOrder.id}`);
+      } else {
+         // Should not happen if createOrder succeeds, but as a fallback
+         toast.error("Order created but details missing.");
+          navigate(`/profile?tab=orders`); // Go to order history as fallback
       }
-       // Xóa giỏ hàng local sau khi đặt hàng thành công (nếu có)
-       localStorage.removeItem("cart");
-       // Dispatch event để cập nhật header
-       window.dispatchEvent(new Event("cartUpdated"));
 
-    } catch (error) {
-      console.error("Order placement error:", error);
-      showToast(error.message || "Failed to place order", "error");
-      navigate(`/order/failure`); // Chuyển đến trang lỗi chung nếu không có orderId
+    } catch (orderError) {
+      console.error("Order placement error:", orderError);
+       toast.error(orderError.message || "Failed to place order");
+      // Navigate to generic failure page if order creation fails without an ID
+       navigate(`/order/failure`);
     } finally {
       setIsPlacingOrder(false);
     }
@@ -132,6 +150,13 @@ export default function Checkout() {
           <div className="flex justify-center items-center h-64">
             <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
           </div>
+        ) : !cart ? (
+            // Added state to handle case where cart becomes null after order placement but before navigation
+           <div className="text-center py-10">
+               <p className="text-gray-600">Processing your order...</p>
+               {/* Optional: Add a link back if stuck */}
+               {/* <Link to="/" className="text-blue-600 hover:underline mt-4">Go Home</Link> */}
+           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Shipping & Payment */}
@@ -145,7 +170,7 @@ export default function Checkout() {
                   <div className="text-center py-6">
                      <p className="text-gray-600 mb-4">You have no saved addresses.</p>
                      <Link
-                        to="/profile?tab=addresses" // Hoặc link đến trang thêm địa chỉ
+                        to="/profile?tab=addresses"
                         className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
                       >
                          Add Address in Profile
@@ -190,8 +215,8 @@ export default function Checkout() {
                   <CreditCard className="w-6 h-6 text-green-600" /> Payment Method
                 </h2>
                 <div className="space-y-3">
-                   <div
-                     onClick={() => setPaymentMethod("COD")}
+                   <label // Use label for better accessibility
+                     htmlFor="payment-cod"
                      className={`p-4 border rounded-lg cursor-pointer transition-all flex justify-between items-center ${
                        paymentMethod === "COD"
                          ? "border-blue-600 bg-blue-50 ring-2 ring-blue-300"
@@ -199,10 +224,18 @@ export default function Checkout() {
                      }`}
                    >
                      <span className="font-medium text-gray-800">Cash on Delivery (COD)</span>
-                     {paymentMethod === 'COD' && <div className="w-2 h-2 bg-blue-600 rounded-full"></div>}
-                   </div>
-                   <div
-                     onClick={() => setPaymentMethod("VNPAY")}
+                      <input
+                        type="radio"
+                        id="payment-cod"
+                        name="paymentMethod"
+                        value="COD"
+                        checked={paymentMethod === 'COD'}
+                        onChange={() => setPaymentMethod("COD")}
+                        className="form-radio h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                   </label>
+                   <label // Use label
+                     htmlFor="payment-vnpay"
                      className={`p-4 border rounded-lg cursor-pointer transition-all flex justify-between items-center ${
                        paymentMethod === "VNPAY"
                          ? "border-blue-600 bg-blue-50 ring-2 ring-blue-300"
@@ -210,8 +243,16 @@ export default function Checkout() {
                      }`}
                    >
                      <span className="font-medium text-gray-800">VNPay Gateway</span>
-                     {paymentMethod === 'VNPAY' && <div className="w-2 h-2 bg-blue-600 rounded-full"></div>}
-                   </div>
+                      <input
+                        type="radio"
+                        id="payment-vnpay"
+                        name="paymentMethod"
+                        value="VNPAY"
+                        checked={paymentMethod === 'VNPAY'}
+                        onChange={() => setPaymentMethod("VNPAY")}
+                        className="form-radio h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                       />
+                   </label>
                 </div>
               </div>
             </div>
@@ -221,47 +262,67 @@ export default function Checkout() {
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <Package className="w-6 h-6 text-purple-600" /> Order Summary
               </h2>
+              {/* Cart Items Preview */}
               <div className="space-y-3 max-h-60 overflow-y-auto pr-2 mb-4 border-b pb-4">
                 {cart?.cartItems?.map((item) => (
                   <div key={item.id} className="flex gap-3">
                     <img
                       src={item.imageUrl || "/placeholder.svg"}
                       alt={item.productName}
-                      className="w-16 h-16 object-cover rounded-md flex-shrink-0"
+                      className="w-16 h-16 object-cover rounded-md flex-shrink-0 bg-gray-100" // Added bg color
                     />
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0"> {/* Added min-w-0 for truncation */}
                       <p className="text-sm font-medium text-gray-800 line-clamp-1">
                         {item.productName}
                       </p>
                        <p className="text-xs text-gray-500">Size: {item.size}</p>
                       <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
                     </div>
-                    <p className="text-sm font-semibold text-gray-800">
+                    <p className="text-sm font-semibold text-gray-800 whitespace-nowrap"> {/* Prevent wrap */}
                       {(item.discountedPrice || item.price).toLocaleString()}đ
                     </p>
                   </div>
                 ))}
               </div>
 
+               {/* Totals Section */}
               <div className="space-y-2 mb-6">
+                 {/* Original Total if discount */}
+                 {cart.discount > 0 && (
+                   <div className="flex justify-between text-sm">
+                     <span className="text-gray-500">Original Total</span>
+                     <span className="text-gray-500 line-through">{cart.totalOriginalPrice.toLocaleString()}đ</span>
+                   </div>
+                 )}
+                  {/* Discount Amount */}
+                 {cart.discount > 0 && (
+                    <div className="flex justify-between text-sm">
+                       <span className="text-green-600">Discount</span>
+                       <span className="text-green-600 font-medium">- {cart.discount.toLocaleString()}đ</span>
+                    </div>
+                  )}
+                 {/* Subtotal */}
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal</span>
                   <span className="font-medium text-gray-800">
-                    {calculateSubtotal().toLocaleString()}đ
+                    {subtotal.toLocaleString()}đ
                   </span>
                 </div>
-                {/* <div className="flex justify-between">
+                 {/* Shipping */}
+                <div className="flex justify-between">
                   <span className="text-gray-600">Shipping</span>
-                  <span className="font-medium text-gray-800">Free</span>
-                </div> */}
+                  <span className="font-medium text-gray-800">{shipping > 0 ? `${shipping.toLocaleString()}đ` : 'Free'}</span>
+                </div>
+                 {/* Grand Total */}
                 <div className="flex justify-between border-t pt-2 mt-2">
                   <span className="text-lg font-bold text-gray-900">Total</span>
                   <span className="text-lg font-bold text-gray-900">
-                    {calculateTotal().toLocaleString()}đ
+                    {total.toLocaleString()}đ
                   </span>
                 </div>
               </div>
 
+              {/* Place Order Button */}
               <button
                 onClick={handlePlaceOrder}
                 disabled={isPlacingOrder || !selectedAddressId || !cart?.cartItems?.length}
@@ -272,7 +333,7 @@ export default function Checkout() {
                     <Loader2 className="w-5 h-5 animate-spin" /> Placing Order...
                   </>
                 ) : (
-                  "Place Order"
+                  `Place Order (${total.toLocaleString()}đ)` // Show total in button
                 )}
               </button>
             </div>

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { X, Star } from "lucide-react"
-import axios from "../api/axios"
+import axios from "../services/axios"
 
 export default function WriteReviewModal({ isOpen, onClose, product, onSuccess }) {
   const [rating, setRating] = useState(0)
