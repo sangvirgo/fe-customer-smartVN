@@ -7,7 +7,7 @@ import {
   Store,
 } from "lucide-react";
 import axiosInstance from "../../services/axios";
-import { addToCart } from "../../utils/cart";
+import { addToCart } from "../../utils/cart.js";
 import { showToast } from "../../components/Toast";
 import ProductCard from "../../components/ProductCard";
 

@@ -1,161 +1,241 @@
-"use client"
+import { useState, useEffect } from "react";
+import { ChevronRight, X } from "lucide-react";
+import axiosInstance from "../services/axios"; // Assuming axios setup
+import { useSearchParams } from "react-router-dom";
 
-import { useState, useEffect } from "react"
-import { useSearchParams } from "react-router-dom"
-import axiosInstance from "../services/axios"
+export default function FilterSidebar({ onFilterChange }) {
+  const [searchParams] = useSearchParams();
+  const [categories, setCategories] = useState([]);
+  const [expandedCategories, setExpandedCategories] = useState([]);
 
-export default function FilterSidebar({ onFilterChange, currentFilters = {} }) {
-  const [categories, setCategories] = useState([])
-  const [expandedCategories, setExpandedCategories] = useState(new Set())
-  const [priceRange, setPriceRange] = useState({ min: "", max: "" })
-  const [searchParams, setSearchParams] = useSearchParams()
+  // Initialize state from URL params or defaults
+  const [selectedTopLevel, setSelectedTopLevel] = useState(searchParams.get("topLevelCategory") || "");
+  const [selectedSecondLevel, setSelectedSecondLevel] = useState(searchParams.get("secondLevelCategory") || "");
+  const [minPrice, setMinPrice] = useState(parseInt(searchParams.get("minPrice") || "0", 10));
+  const [maxPrice, setMaxPrice] = useState(parseInt(searchParams.get("maxPrice") || "100000000", 10)); // Max 100 million VND
 
   useEffect(() => {
-    fetchCategories()
-    const minPrice = searchParams.get("minPrice")
-    const maxPrice = searchParams.get("maxPrice")
-    if (minPrice || maxPrice) {
-      setPriceRange({ min: minPrice || "", max: maxPrice || "" })
-    }
-  }, [])
+    fetchCategories();
+  }, []);
+
+   // Effect to update filters when state changes
+   useEffect(() => {
+    const params = {};
+    if (selectedTopLevel) params.topLevelCategory = selectedTopLevel;
+    if (selectedSecondLevel) params.secondLevelCategory = selectedSecondLevel;
+    // Only add price if it's not the default range
+    if (minPrice > 0) params.minPrice = minPrice.toString();
+    if (maxPrice < 100000000) params.maxPrice = maxPrice.toString();
+
+    onFilterChange(params); // Call the callback function passed from parent
+  }, [selectedTopLevel, selectedSecondLevel, minPrice, maxPrice, onFilterChange]);
+
 
   const fetchCategories = async () => {
     try {
-      const response = await axiosInstance.get("/categories")
-      const categoriesData = response.data?.data || []
-      
-      // Chỉ lấy categories level 1 để tránh duplicate
-      const level1Categories = categoriesData.filter(cat => cat.level === 1)
-      
-      console.log("Categories fetched:", level1Categories)
-      setCategories(Array.isArray(level1Categories) ? level1Categories : [])
+      const response = await axiosInstance.get("/categories");
+      // Adjust based on your actual API response structure
+      const categoriesData = response.data?.data || [];
+       setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+
+        // Auto-expand parent category if a child is selected from URL
+        if (selectedSecondLevel) {
+           const parent = categoriesData.find(cat => cat.subCategories?.some(sub => sub.name === selectedSecondLevel));
+           if (parent) {
+              setExpandedCategories(prev => [...prev, parent.categoryId]);
+           }
+         } else if (selectedTopLevel) {
+            // Auto-expand parent if selected from URL (for consistency)
+             const parent = categoriesData.find(cat => cat.name === selectedTopLevel && cat.level === 1);
+             if (parent && parent.subCategories?.length > 0) {
+                 setExpandedCategories(prev => [...prev, parent.categoryId]);
+             }
+         }
+
     } catch (error) {
-      console.error("Error fetching categories:", error)
-      setCategories([])
+      console.error("Error fetching categories:", error);
+      setCategories([]);
     }
-  }
-
-  const handleCategorySelect = (category, parentCategory = null) => {
-    const newParams = new URLSearchParams(searchParams)
-
-    if (category.level === 1) {
-      newParams.set("topLevelCategory", category.name)
-      newParams.delete("secondLevelCategory")
-    } else if (category.level === 2 && parentCategory) {
-      newParams.set("topLevelCategory", parentCategory.name)
-      newParams.set("secondLevelCategory", category.name)
-    }
-
-    setSearchParams(newParams)
-    onFilterChange(newParams)
-  }
-
-  const handlePriceChange = (e) => {
-    const { name, value } = e.target
-    setPriceRange((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handlePriceApply = () => {
-    const newParams = new URLSearchParams(searchParams)
-    if (priceRange.min) newParams.set("minPrice", priceRange.min)
-    else newParams.delete("minPrice")
-    
-    if (priceRange.max) newParams.set("maxPrice", priceRange.max)
-    else newParams.delete("maxPrice")
-    
-    setSearchParams(newParams)
-    onFilterChange(newParams)
-  }
+  };
 
   const toggleCategory = (categoryId) => {
-    setExpandedCategories((prev) => {
-      const newSet = new Set(prev)
-      if (newSet.has(categoryId)) {
-        newSet.delete(categoryId)
-      } else {
-        newSet.add(categoryId)
-      }
-      return newSet
-    })
-  }
+    setExpandedCategories((prev) =>
+      prev.includes(categoryId)
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
 
-  const renderCategories = (cats, parentCategory = null) => {
-    if (!cats || cats.length === 0) return null
-    
-    return cats.map((category) => (
-      <div key={category.categoryId} className="my-2">
-        <div className="flex items-center justify-between">
-          <button 
-            onClick={() => handleCategorySelect(category, parentCategory)}
-            className="text-left flex-1 hover:text-blue-600 transition-colors py-1"
-          >
-            {category.name}
-          </button>
-          
-          {/* Nếu có subcategories, hiển thị expand button */}
-          {category.subCategories && category.subCategories.length > 0 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                toggleCategory(category.categoryId)
-              }}
-              className="ml-2 text-gray-500 hover:text-gray-700"
-            >
-              {expandedCategories.has(category.categoryId) ? "−" : "+"}
-            </button>
-          )}
-        </div>
-        
-        {/* Render subcategories nếu đã expand */}
-        {category.subCategories && 
-         category.subCategories.length > 0 && 
-         expandedCategories.has(category.categoryId) && (
-          <div className="ml-4 border-l-2 border-gray-200 pl-2">
-            {renderCategories(category.subCategories, category)}
-          </div>
-        )}
-      </div>
-    ))
-  }
+  const handleCategoryClick = (category, level, parentName = null) => {
+     if (level === 1) {
+       // If clicking the currently selected top-level, deselect it
+       if (selectedTopLevel === category.name && !selectedSecondLevel) {
+         setSelectedTopLevel("");
+       } else {
+         setSelectedTopLevel(category.name);
+         setSelectedSecondLevel(""); // Clear second level when selecting top level
+       }
+     } else if (level === 2) {
+       // If clicking the currently selected second-level, deselect it but keep parent
+       if (selectedSecondLevel === category.name) {
+         setSelectedSecondLevel("");
+       } else {
+         setSelectedTopLevel(parentName); // Ensure parent is set
+         setSelectedSecondLevel(category.name);
+       }
+     }
+  };
+
+   const clearCategoryFilter = () => {
+     setSelectedTopLevel("");
+     setSelectedSecondLevel("");
+   };
+
+   const clearPriceFilter = () => {
+      setMinPrice(0);
+      setMaxPrice(100000000);
+   }
+
+   const clearAllFilters = () => {
+      clearCategoryFilter();
+      clearPriceFilter();
+   }
+
+  // Active filters derived from state
+   const activeCategoryFilter = selectedSecondLevel || selectedTopLevel;
+   const activePriceFilter = minPrice > 0 || maxPrice < 100000000;
+
 
   return (
-    <div className="space-y-6 bg-white p-4 rounded-lg shadow">
+    <div className="space-y-6">
+      {/* Categories */}
       <div>
-        <h3 className="font-semibold text-gray-900 mb-4">Categories</h3>
-        {categories.length === 0 ? (
-          <p className="text-gray-500 text-sm">Loading categories...</p>
-        ) : (
-          renderCategories(categories)
-        )}
-      </div>
-      
-      <div>
-        <h3 className="font-semibold text-gray-900 mb-4">Price Range</h3>
-        <div className="space-y-2">
-          <input 
-            type="number" 
-            name="min" 
-            placeholder="Min Price" 
-            value={priceRange.min} 
-            onChange={handlePriceChange} 
-            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <input 
-            type="number" 
-            name="max" 
-            placeholder="Max Price" 
-            value={priceRange.max} 
-            onChange={handlePriceChange} 
-            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <button 
-            onClick={handlePriceApply} 
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition-colors font-medium"
-          >
-            Apply Filter
-          </button>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Categories</h3>
+        <div className="space-y-1">
+          {categories
+            .filter((c) => c.level === 1)
+            .map((category) => (
+              <div key={category.categoryId}>
+                <button
+                  onClick={() => {
+                    handleCategoryClick(category, 1);
+                    if (category.subCategories?.length > 0) {
+                      toggleCategory(category.categoryId);
+                    }
+                  }}
+                  className={`flex items-center justify-between w-full px-3 py-2 rounded-md transition-colors text-sm ${
+                    selectedTopLevel === category.name && !selectedSecondLevel
+                      ? "bg-blue-50 text-blue-700 font-medium"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  <span>{category.name}</span>
+                  {category.subCategories?.length > 0 && (
+                    <ChevronRight
+                      className={`w-4 h-4 transition-transform ${
+                        expandedCategories.includes(category.categoryId)
+                          ? "rotate-90"
+                          : ""
+                      }`}
+                    />
+                  )}
+                </button>
+                {/* Subcategories */}
+                 {category.subCategories?.length > 0 && expandedCategories.includes(category.categoryId) && (
+                     <div className="pl-4 mt-1 space-y-1 border-l-2 border-gray-100 ml-1">
+                        {category.subCategories.map((child) => (
+                         <button
+                           key={child.categoryId}
+                           onClick={() => handleCategoryClick(child, 2, category.name)}
+                           className={`block w-full text-left px-3 py-1.5 rounded-md transition-colors text-sm ${
+                             selectedSecondLevel === child.name
+                               ? "bg-blue-50 text-blue-700 font-medium"
+                               : "text-gray-600 hover:bg-gray-100"
+                           }`}
+                         >
+                           {child.name}
+                         </button>
+                       ))}
+                     </div>
+                   )}
+              </div>
+            ))}
         </div>
       </div>
+
+       {/* Price Range */}
+       <div>
+         <h3 className="text-lg font-semibold text-gray-900 mb-3">Price Range</h3>
+         <div className="space-y-3 px-1">
+           {/* We'll use two inputs for min and max, simpler than a complex range slider */}
+           <div className='flex items-center gap-2'>
+              <span className='text-xs text-gray-500 w-8'>Min:</span>
+              <input
+                type="number"
+                min="0"
+                max={maxPrice} // Min cannot exceed max
+                step="500000" // 500k steps
+                value={minPrice}
+                 onChange={(e) => setMinPrice(Math.max(0, parseInt(e.target.value) || 0))}
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <span className='text-xs text-gray-500'>đ</span>
+           </div>
+           <div className='flex items-center gap-2'>
+              <span className='text-xs text-gray-500 w-8'>Max:</span>
+              <input
+                type="number"
+                min={minPrice} // Max cannot be less than min
+                max="100000000"
+                step="500000"
+                value={maxPrice}
+                 onChange={(e) => setMaxPrice(Math.min(100000000, parseInt(e.target.value) || 100000000))}
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+               />
+                <span className='text-xs text-gray-500'>đ</span>
+           </div>
+           <div className="text-xs text-gray-600 text-center pt-1">
+              {minPrice.toLocaleString()}đ - {maxPrice.toLocaleString()}đ
+            </div>
+         </div>
+       </div>
+
+
+        {/* Active Filters Display & Clear */}
+       {(activeCategoryFilter || activePriceFilter) && (
+         <div className="border-t pt-4 mt-4">
+           <div className="flex justify-between items-center mb-2">
+             <h3 className="text-sm font-semibold text-gray-800">Active Filters</h3>
+             <button
+               onClick={clearAllFilters}
+               className="text-xs text-blue-600 hover:underline font-medium"
+             >
+               Clear All
+             </button>
+           </div>
+           <div className="flex flex-wrap gap-2">
+             {activeCategoryFilter && (
+               <div className="flex items-center gap-1 bg-gray-100 text-gray-700 pl-2 pr-1 py-0.5 rounded-full text-xs">
+                 <span>Cat: {selectedSecondLevel || selectedTopLevel}</span>
+                 <button onClick={clearCategoryFilter} className="text-gray-400 hover:text-gray-600"><X size={12} /></button>
+               </div>
+             )}
+             {activePriceFilter && (
+               <div className="flex items-center gap-1 bg-gray-100 text-gray-700 pl-2 pr-1 py-0.5 rounded-full text-xs">
+                 <span>
+                    {minPrice > 0 ? `${minPrice.toLocaleString()}đ` : ''}
+                    {(minPrice > 0 && maxPrice < 100000000) ? ' - ' : ''}
+                    {maxPrice < 100000000 ? `${maxPrice.toLocaleString()}đ` : ''}
+                    {(minPrice === 0 && maxPrice < 100000000) ? 'Under ' : ''}
+                    {(minPrice > 0 && maxPrice === 100000000) ? 'Over ' : ''}
+                 </span>
+                 <button onClick={clearPriceFilter} className="text-gray-400 hover:text-gray-600"><X size={12} /></button>
+               </div>
+             )}
+           </div>
+         </div>
+       )}
+
     </div>
-  )
+  );
 }
