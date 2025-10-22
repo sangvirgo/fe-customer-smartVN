@@ -20,6 +20,8 @@ export default function LogoutModal({ isOpen, onClose }) {
       localStorage.removeItem("accessToken")
       localStorage.removeItem("user")
       localStorage.removeItem("cart")
+      window.dispatchEvent(new Event("auth-change"))
+
       setIsLoading(false)
       onClose()
       navigate("/login")

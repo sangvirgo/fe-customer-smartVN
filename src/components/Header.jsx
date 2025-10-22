@@ -14,26 +14,40 @@ export default function Header() {
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const navigate = useNavigate()
 
-  useEffect(() => {
-    // Get cart count from localStorage
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]")
-    setCartCount(cart.reduce((total, item) => total + item.quantity, 0))
+useEffect(() => {
+  // ✅ Hàm load user và cart
+  const loadUserData = () => {
+    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+    setCartCount(cart.reduce((total, item) => total + item.quantity, 0));
 
-    // Get user from localStorage
-    const userData = localStorage.getItem("user")
-    if (userData) {
-      setUser(JSON.parse(userData))
-    }
+    const userData = localStorage.getItem("user");
+    setUser(userData ? JSON.parse(userData) : null);
+  };
 
-    // Listen for cart updates
-    const handleCartUpdate = () => {
-      const updatedCart = JSON.parse(localStorage.getItem("cart") || "[]")
-      setCartCount(updatedCart.reduce((total, item) => total + item.quantity, 0))
-    }
+  // Load lần đầu
+  loadUserData();
 
-    window.addEventListener("cartUpdated", handleCartUpdate)
-    return () => window.removeEventListener("cartUpdated", handleCartUpdate)
-  }, [])
+  // ✅ Listen cart updates
+  const handleCartUpdate = () => {
+    const updatedCart = JSON.parse(localStorage.getItem("cart") || "[]");
+    setCartCount(updatedCart.reduce((total, item) => total + item.quantity, 0));
+  };
+
+  // ✅ Listen auth changes (login/logout)
+  const handleAuthChange = () => {
+    loadUserData();
+  };
+
+  window.addEventListener("cartUpdated", handleCartUpdate);
+  window.addEventListener("auth-change", handleAuthChange);
+  window.addEventListener("storage", loadUserData); // Cho multi-tab
+
+  return () => {
+    window.removeEventListener("cartUpdated", handleCartUpdate);
+    window.removeEventListener("auth-change", handleAuthChange);
+    window.removeEventListener("storage", loadUserData);
+  };
+}, []);
 
   const handleLogout = () => {
     setIsUserMenuOpen(false)

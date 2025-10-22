@@ -17,6 +17,7 @@ import OrderFailure from "./pages/order/OrderFailure"; // Updated path
 import OrderDetail from "./pages/order/OrderDetail"; // Added import
 import VNPayCallbackPage from "./pages/payment/VNPayCallbackPage"; // Added import
 import ProtectedRoute from "./components/ProtectedRoute";
+import OAuth2Redirect from "./pages/auth/OAuth2Redirect";
 
 function App() {
   return (
@@ -46,6 +47,7 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/verify-otp" element={<VerifyOtp />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/oauth2/redirect" element={<OAuth2Redirect />} />
             <Route path="/profile" element={
               <ProtectedRoute>
                 <Profile />

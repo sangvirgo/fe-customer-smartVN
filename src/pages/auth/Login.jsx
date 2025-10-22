@@ -33,6 +33,7 @@ export default function Login() {
       // Store in localStorage
       localStorage.setItem("accessToken", accessToken)
       localStorage.setItem("user", JSON.stringify(user))
+      window.dispatchEvent(new Event("auth-change"))
 
       showToast("Login successful!", "success")
       navigate("/")
@@ -43,9 +44,13 @@ export default function Login() {
     }
   }
 
-  const handleOAuthLogin = (provider) => {
-    showToast(`${provider} login coming soon!`, "info")
-  }
+const handleOAuthLogin = (provider) => {
+  const urls = {
+    Google: "http://localhost:8081/oauth2/authorization/google",  // Trực tiếp user-service
+    GitHub: "http://localhost:8081/oauth2/authorization/github"
+  };
+  window.location.href = urls[provider];
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4">

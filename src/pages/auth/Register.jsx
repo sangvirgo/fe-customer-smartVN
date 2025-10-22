@@ -65,9 +65,13 @@ export default function Register() {
     }
   }
 
-  const handleOAuthRegister = (provider) => {
-    showToast(`${provider} registration coming soon!`, "info")
-  }
+const handleOAuthRegister = (provider) => {
+  const urls = {
+    Google: "http://localhost:8081/oauth2/authorization/google",
+    GitHub: "http://localhost:8081/oauth2/authorization/github"
+  };
+  window.location.href = urls[provider];
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-blue-50 px-4 py-8">
