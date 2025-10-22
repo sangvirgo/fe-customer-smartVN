@@ -170,6 +170,7 @@ export default function Profile() {
       // Use the correct service function name
       const profileData = await userService.getProfile();
       setUser(profileData); // Assuming getProfile returns the user object directly
+      console.log('profileData', profileData)
       setFormData({
         firstName: profileData.firstName || "",
         lastName: profileData.lastName || "",

@@ -119,11 +119,19 @@ useEffect(() => {
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                     className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
                   >
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center overflow-hidden">
+                    {user.imageUrl ? (
+                      <img 
+                        src={user.imageUrl} 
+                        alt={user.firstName || "User"} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
                       <span className="text-white text-sm font-semibold">
                         {user.firstName?.charAt(0).toUpperCase() || user.name?.charAt(0).toUpperCase() || "U"}
                       </span>
-                    </div>
+                    )}
+                  </div>
                   </button>
 
                   {isUserMenuOpen && (
