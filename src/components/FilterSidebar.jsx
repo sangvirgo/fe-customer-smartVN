@@ -19,16 +19,20 @@ export default function FilterSidebar({ onFilterChange }) {
   }, []);
 
    // Effect to update filters when state changes
-   useEffect(() => {
+// THAY useEffect hiện tại bằng debounce:
+useEffect(() => {
+  const timer = setTimeout(() => {
     const params = {};
     if (selectedTopLevel) params.topLevelCategory = selectedTopLevel;
     if (selectedSecondLevel) params.secondLevelCategory = selectedSecondLevel;
-    // Only add price if it's not the default range
     if (minPrice > 0) params.minPrice = minPrice.toString();
     if (maxPrice < 100000000) params.maxPrice = maxPrice.toString();
+    
+    onFilterChange(params);
+  }, 300); // Debounce 300ms
 
-    onFilterChange(params); // Call the callback function passed from parent
-  }, [selectedTopLevel, selectedSecondLevel, minPrice, maxPrice, onFilterChange]);
+  return () => clearTimeout(timer);
+}, [selectedTopLevel, selectedSecondLevel, minPrice, maxPrice]);
 
 
   const fetchCategories = async () => {

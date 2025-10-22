@@ -62,20 +62,18 @@ export default function Category() {
   }, [fetchProducts]); // Run when fetchProducts function identity changes (due to searchParams)
 
   // Handler passed to FilterSidebar
-   const handleFilterChange = (newParams) => {
-     // Preserve existing search query if filters change
-     const currentSearch = searchParams.get('search');
-     const finalParams = { ...newParams };
-     if (currentSearch) {
-       finalParams.search = currentSearch;
-     }
-     // Remove empty filter values before setting URL
-     Object.keys(finalParams).forEach(key => (!finalParams[key]) && delete finalParams[key]);
-
-     setSearchParams(finalParams);
-     setCurrentPage(0); // Reset to first page when filters change
-     // fetchProducts will be called automatically by the useEffect watching searchParams
-   };
+// THAY handleFilterChange bằng:
+const handleFilterChange = useCallback((newParams) => {
+  const currentSearch = searchParams.get('search');
+  const finalParams = { ...newParams };
+  if (currentSearch) finalParams.search = currentSearch;
+  
+  Object.keys(finalParams).forEach(key => (!finalParams[key]) && delete finalParams[key]);
+  
+  // ✅ Replace thay vì push để tránh throttling
+  setSearchParams(finalParams, { replace: true });
+  setCurrentPage(0);
+}, [searchParams, setSearchParams]);
 
   const handlePageChange = (newPage) => {
      // Update URL param for page

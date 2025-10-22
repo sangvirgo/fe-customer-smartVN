@@ -202,27 +202,31 @@ export default function Profile() {
   };
 
    // **FIXED Function to fetch orders based on filter**
-   const fetchOrders = async (status = null) => {
-     setLoadingOrders(true);
-     try {
-       let response;
-       // ✅ Check if status is null or "ALL" to call the correct service
-       if (!status || status === "ALL") {
-         response = await orderService.getUserOrders(); // Call API without status param
-       } else {
-         response = await orderService.getOrdersByStatus(status); // Call API with specific status
-       }
-       setOrders(response.orders || []); // Assuming the response has an 'orders' array
-     } catch (error) {
-        // Log the specific error message from the backend if available
-       console.error(`Failed to fetch orders with status ${status || 'ALL'}:`, error.message);
-       // Show a user-friendly message, potentially including backend message
-       toast.error(error.message || `Failed to load ${status ? status.toLowerCase() : 'all'} orders`, "error");
-       setOrders([]); // Clear orders on error
-     } finally {
-       setLoadingOrders(false);
-     }
-   };
+const fetchOrders = async (status = null) => {
+  setLoadingOrders(true);
+  try {
+    let response;
+    if (!status || status === "ALL") {
+      response = await orderService.getUserOrders();
+    } else {
+      response = await orderService.getOrdersByStatus(status);
+    }
+    setOrders(response.orders || []);
+  } catch (error) {
+    console.error(`Failed to fetch orders:`, error);
+    
+    // ✅ XỬ LÝ CASE BACKEND TRẢ VỀ EMPTY_ORDER
+    if (error.response?.data?.code === 'EMPTY_ORDER') {
+      setOrders([]); // Set empty array thay vì throw error
+      // Không show toast error cho case này
+    } else {
+      toast.error(error.message || `Failed to load orders`);
+      setOrders([]);
+    }
+  } finally {
+    setLoadingOrders(false);
+  }
+};
 
    // Effect to refetch orders when filter changes
    useEffect(() => {

@@ -44,24 +44,21 @@ const orderService = {
    * @param {string} orderStatus - 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'
    * @returns {Promise<{orders: OrderDTO[], messages: string}>}
    */
-  getOrdersByStatus: async (orderStatus) => {
-    if (!orderStatus) {
-       throw new Error("Order status is required.");
-    }
-    try {
-      const response = await axiosInstance.get(`/orders/status?orderStatus=${orderStatus}`);
-      // Backend trả về { orders: List<OrderDTO>, messages: "..." }
-       return response.data;
-    } catch (error) {
-      // Backend trả về 400 nếu không có đơn hàng, cần xử lý khác với lỗi 500
-      if (error.response && error.response.status === 400 && error.response.data?.code === 'EMPTY_ORDER') {
-         console.log(`No orders found with status: ${orderStatus}`);
-            return { orders: [], messages: error.response.data.message || "Không có đơn hàng" };
-      }
-      console.error(`Error fetching orders with status ${orderStatus}:`, error);
-      throw error;
-    }
-  },
+getOrdersByStatus: async (orderStatus) => {
+  if (!orderStatus) {
+    throw new Error("Order status is required.");
+  }
+  try {
+    const response = await axiosInstance.get(`/orders/status`, {
+      params: { orderStatus } // ✅ Dùng params object
+    });
+    return response.data;
+  } catch (error) {
+    // ✅ Không cần xử lý 400 nữa vì backend trả 200
+    console.error(`Error fetching orders with status ${orderStatus}:`, error);
+    throw error;
+  }
+},
 
   /**
    * Lấy chi tiết đơn hàng theo ID

@@ -66,6 +66,7 @@ export default function ProductDetail() {
 
       // Fetch product data
       const productData = await productService.getProductById(id);
+      console.log('productData', productData);
       setProduct(productData);
 
       // Fetch initial reviews (page 0) - Moved to separate function
@@ -352,9 +353,9 @@ export default function ProductDetail() {
                     <Star key={i} className={`w-5 h-5 ${i < Math.floor(product.averageRating || 0) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
                   ))}
                 </div>
-                 {/* Use reviewCount */}
+                 {/* Use numRatings */}
                 <span className="text-sm text-gray-600">
-                  {product.averageRating?.toFixed(1) || 'No Rating'} ({product.reviewCount || 0} reviews)
+                  {product.averageRating?.toFixed(1) || 'No Rating'} ({product.numRatings || 0} reviews)
                 </span>
               </div>
             </div>
@@ -480,7 +481,7 @@ export default function ProductDetail() {
                 <button onClick={() => setActiveTab("description")} className={`py-4 font-semibold border-b-2 transition-colors ${activeTab === "description" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-600 hover:text-gray-900"}`}>Description</button>
                 <button onClick={() => setActiveTab("specifications")} className={`py-4 font-semibold border-b-2 transition-colors ${activeTab === "specifications" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-600 hover:text-gray-900"}`}>Details</button>
                  {/* Show review count from product data */}
-                <button onClick={() => setActiveTab("reviews")} className={`py-4 font-semibold border-b-2 transition-colors ${activeTab === "reviews" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-600 hover:text-gray-900"}`}>Reviews ({product.reviewCount || 0})</button>
+                <button onClick={() => setActiveTab("reviews")} className={`py-4 font-semibold border-b-2 transition-colors ${activeTab === "reviews" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-600 hover:text-gray-900"}`}>Reviews ({product.numRatings || 0})</button>
                 </div>
             </div>
              {/* Tab Content */}
