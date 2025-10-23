@@ -37,7 +37,7 @@ export default function Cart() {
       const cartData = await cartService.getCart();
       setCart(cartData);
     } catch (err) {
-      toast.error(err.message || "Failed to load cart");
+      console.error(err.message || "Failed to load cart");
       setCart({ cartItems: [], totalOriginalPrice: 0, totalDiscountedPrice: 0, discount: 0 });
     } finally {
       setLoading(false);

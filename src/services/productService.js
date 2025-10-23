@@ -58,35 +58,37 @@ const productService = {
 
   // Đã sửa: Đổi tên param thành reviewContent, thêm productId vào URL
 createReview: async (productId, rating, reviewContent) => {
-  if (!productId || rating === undefined || rating === null) {
-    throw new Error("Product ID and rating are required to create a review.");
-  }
-  
-  try {
-    // ✅ LẤY userId từ localStorage
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (!user.id) {
-      throw new Error("User not logged in");
+    if (!productId || rating === undefined || rating === null) {
+      throw new Error("Product ID and rating are required to create a review.");
     }
-    
-    const response = await axiosInstance.post(
-      `/products/${productId}/reviews`,
-      {
-        rating: parseInt(rating, 10),
-        reviewContent,
-      },
-      {
-        headers: {
-          "X-User-Id": user.id, // ✅ THÊM HEADER NÀY
-        },
+
+    try {
+      // ✅ LẤY userId từ localStorage
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      if (!user.id) {
+        throw new Error("User not logged in");
       }
-    );
-    return response.data;
-  } catch (error) {
-    console.error(`Error creating review for product ${productId}:`, error);
-    throw error;
-  }
-},
+
+      const response = await axiosInstance.post(
+        `/products/${productId}/reviews`,
+        {
+          rating: parseInt(rating, 10),
+          reviewContent, // Sửa tên field cho khớp ReviewRequest DTO
+        },
+        {
+          headers: {
+            "X-User-Id": user.id, // ✅ THÊM HEADER NÀY
+          },
+        }
+      );
+      // Backend trả về ApiResponse<Review>
+      return response.data; // Trả về { data: Review, message: "..." }
+    } catch (error) {
+      console.error(`Error creating review for product ${productId}:`, error);
+      // Ném lại lỗi để component xử lý (bao gồm cả lỗi chưa mua hàng từ BE)
+      throw new Error(error.response?.data?.message || error.message || "Failed to submit review");
+    }
+  },
 
 
 };
