@@ -68,8 +68,6 @@ function App() {
                  <OrderDetail />
                </ProtectedRoute>
              } />
-             {/* Added VNPay Callback Route */}
-             <Route path="/payment/vnpay-callback" element={<VNPayCallbackPage />} />
 
             {/* Catch-all 404 Route */}
             <Route path="*" element={<NotFound />} />

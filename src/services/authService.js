@@ -40,14 +40,22 @@ const authService = {
   },
 
   // Đã sửa: Gộp forgot password và reset password vào một hàm gọi API duy nhất
-  forgotPasswordReset: async (email, otp, newPassword) => {
-    const response = await axiosInstance.post("/auth/register/forgot-password", {
-      email,
-      otp,
-      newPassword,
-    });
-    return response.data; // Trả về { message }
-  },
+// Thêm function này (hoặc đổi tên forgotPasswordReset thành forgotPassword)
+forgotPassword: async (email) => {
+  const response = await axiosInstance.post("/auth/register/resend-otp", {
+    email,
+  });
+  return response.data;
+},
+
+resetPassword: async (email, otp, newPassword) => {
+  const response = await axiosInstance.post("/auth/register/forgot-password", {
+    email,
+    otp,
+    newPassword,
+  });
+  return response.data;
+},
 
   logout: () => {
     // Xóa token và user data khỏi localStorage

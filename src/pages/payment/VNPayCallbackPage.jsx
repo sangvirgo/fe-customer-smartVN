@@ -12,50 +12,48 @@ export default function VNPayCallbackPage() {
     handleVNPayCallback();
   }, []);
 
-  const handleVNPayCallback = async () => {
-    try {
-      // ✅ Lấy tất cả params từ URL
-      const params = {};
-      for (let [key, value] of searchParams.entries()) {
-        params[key] = value;
-      }
-
-      // ✅ Parse callback info
-      const callbackInfo = paymentService.parseVNPayCallback(searchParams);
-      
-      if (!callbackInfo.orderId) {
-        navigate('/order/failure?message=' + encodeURIComponent('Invalid payment response'));
-        return;
-      }
-
-      // ✅ GỌI BACKEND để verify và update payment
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/payment/vnpay-callback?${searchParams.toString()}`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          }
-        }
-      );
-
-      const result = await response.json();
-
-      // ✅ Redirect dựa trên kết quả
-      if (callbackInfo.success && result.success) {
-        navigate(`/order/success?orderId=${callbackInfo.orderId}`);
-      } else {
-        const errorMessage = result.message || callbackInfo.message || 'Payment failed';
-        navigate(`/order/failure?orderId=${callbackInfo.orderId}&message=${encodeURIComponent(errorMessage)}`);
-      }
-      
-    } catch (error) {
-      console.error('Error processing VNPay callback:', error);
-      navigate('/order/failure?message=' + encodeURIComponent('Error processing payment'));
-    } finally {
-      setProcessing(false);
+const handleVNPayCallback = async () => {
+  try {
+    // ✅ Parse callback info first
+    const callbackInfo = paymentService.parseVNPayCallback(searchParams);
+    
+    if (!callbackInfo.orderId) {
+      navigate('/order/failure?message=' + encodeURIComponent('Invalid payment'));
+      return;
     }
-  };
+
+    // ✅ Call backend to verify & update
+    const response = await fetch(
+      `${import.meta.env.VITE_API_BASE_URL}/payment/vnpay-callback?${searchParams.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Backend verification failed');
+    }
+
+    const result = await response.json();
+
+    // ✅ Redirect based on result
+    if (result.success) {
+      navigate(`/order/success?orderId=${callbackInfo.orderId}`);
+    } else {
+      const errorMsg = result.message || 'Payment failed';
+      navigate(`/order/failure?orderId=${callbackInfo.orderId}&message=${encodeURIComponent(errorMsg)}`);
+    }
+    
+  } catch (error) {
+    console.error('Error processing VNPay callback:', error);
+    navigate('/order/failure?message=' + encodeURIComponent('Processing error'));
+  } finally {
+    setProcessing(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
