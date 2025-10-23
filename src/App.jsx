@@ -61,6 +61,7 @@ function App() {
              <Route path="/order/failure" element={
                <OrderFailure />
              } />
+             <Route path="/payment/vnpay-callback" element={<VNPayCallbackPage />} />
              {/* Added OrderDetail Route */}
              <Route path="/order/:orderId" element={
                <ProtectedRoute>
