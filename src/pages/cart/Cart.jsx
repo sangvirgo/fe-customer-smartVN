@@ -1,28 +1,35 @@
-"use client"; // Keep this if using Next.js specific features, otherwise remove
+"use client";
 
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import toast from 'react-hot-toast'; // Use react-hot-toast
+import toast from 'react-hot-toast';
 import {
   ShoppingCart,
   Trash2,
   Plus,
   Minus,
   ArrowRight,
-  Loader2, // Added for loading state
+  Loader2,
 } from "lucide-react";
-// Import cartService
 import cartService from "../../services/cartService";
 
 export default function Cart() {
   const navigate = useNavigate();
-  const [cart, setCart] = useState(null); // Store the whole cart object { items, totalOriginalPrice, etc. }
+  const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [updatingItemId, setUpdatingItemId] = useState(null); // Track which item is being updated/removed
+  const [updatingItemId, setUpdatingItemId] = useState(null);
+  const [selectedItems, setSelectedItems] = useState(new Set());
 
   useEffect(() => {
     fetchCart();
   }, []);
+
+  // ✅ Auto-select all items when cart loads
+  useEffect(() => {
+    if (cart?.cartItems && cart.cartItems.length > 0) {
+      setSelectedItems(new Set(cart.cartItems.map(item => item.id)));
+    }
+  }, [cart?.cartItems]);
 
   const fetchCart = async () => {
     try {
@@ -31,46 +38,66 @@ export default function Cart() {
       setCart(cartData);
     } catch (err) {
       toast.error(err.message || "Failed to load cart");
-      setCart({ items: [], totalOriginalPrice: 0, totalDiscountedPrice: 0, discount: 0 }); // Set empty cart on error
+      setCart({ cartItems: [], totalOriginalPrice: 0, totalDiscountedPrice: 0, discount: 0 });
     } finally {
       setLoading(false);
     }
   };
 
+  const toggleItemSelection = (itemId) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedItems.size === cart?.cartItems?.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(cart.cartItems.map(item => item.id)));
+    }
+  };
+
   const updateQuantity = async (item, newQuantity) => {
-     // Prevent updating below 1 or while another update is happening for this item
     if (newQuantity < 1 || updatingItemId === item.id) return;
 
     setUpdatingItemId(item.id);
     try {
-      // Pass itemId, newQuantity, productId, and size
       const response = await cartService.updateCartItem(item.id, newQuantity, item.productId, item.size);
-       // Fetch the updated cart from the backend for consistency
-       await fetchCart();
-      // Dispatch event for header update
+      await fetchCart();
       window.dispatchEvent(new Event("cartUpdated"));
       if(response.message) {
-         toast.success(response.message);
+        toast.success(response.message);
       }
     } catch (err) {
       toast.error(err.message || "Failed to update quantity");
-       // Optional: revert local state if API call fails (or rely on fetchCart)
     } finally {
       setUpdatingItemId(null);
     }
   };
 
   const removeItem = async (itemId) => {
-     if (updatingItemId === itemId) return; // Prevent double clicks
+    if (updatingItemId === itemId) return;
 
     setUpdatingItemId(itemId);
     try {
       const response = await cartService.removeCartItem(itemId);
-      // Fetch the updated cart from the backend
-       await fetchCart();
-      // Dispatch event for header update
+      await fetchCart();
       window.dispatchEvent(new Event("cartUpdated"));
       toast.success(response.message || 'Item removed');
+      
+      // ✅ Remove from selected items if deleted
+      setSelectedItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
     } catch (err) {
       toast.error(err.message || "Failed to remove item");
     } finally {
@@ -78,10 +105,14 @@ export default function Cart() {
     }
   };
 
-  // Use totals from the cart object fetched from the backend
-  const subtotal = cart?.totalDiscountedPrice ?? 0;
-  // Assuming backend doesn't provide shipping yet, or add if it does
-  const shipping = 0; // Replace with cart?.shippingFee if available
+  // ✅ Calculate totals ONLY from selected items
+  const selectedCartItems = cart?.cartItems?.filter(item => selectedItems.has(item.id)) || [];
+  const subtotal = selectedCartItems.reduce((sum, item) => 
+    sum + (item.discountedPrice || item.price) * item.quantity, 0);
+  const originalTotal = selectedCartItems.reduce((sum, item) => 
+    sum + item.price * item.quantity, 0);
+  const discount = originalTotal - subtotal;
+  const shipping = 0;
   const total = subtotal + shipping;
 
   if (loading) {
@@ -117,29 +148,54 @@ export default function Cart() {
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Shopping Cart</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Cart Items List (Flat) */}
+          {/* Cart Items List */}
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-6 space-y-4">
+            {/* Select All Checkbox */}
+            <div className="flex items-center gap-3 mb-4 pb-3 border-b">
+              <input
+                type="checkbox"
+                id="select-all"
+                checked={selectedItems.size === cart?.cartItems?.length && cart?.cartItems?.length > 0}
+                onChange={toggleSelectAll}
+                className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <label htmlFor="select-all" className="text-sm font-medium text-gray-700 cursor-pointer">
+                Select All ({cart?.cartItems?.length || 0} items)
+              </label>
+            </div>
+
+            {/* Cart Items with Checkbox */}
             {cart.cartItems.map((item) => (
-              <div key={item.id} className={`flex flex-col sm:flex-row gap-4 py-4 border-b last:border-b-0 ${updatingItemId === item.id ? 'opacity-50' : ''}`}>
+              <div key={item.id} className={`flex gap-4 py-4 border-b last:border-b-0 ${updatingItemId === item.id ? 'opacity-50' : ''}`}>
+                {/* Checkbox */}
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`item-${item.id}`}
+                    checked={selectedItems.has(item.id)}
+                    onChange={() => toggleItemSelection(item.id)}
+                    disabled={updatingItemId === item.id}
+                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
+                  />
+                </div>
+
                 <img
-                  // Use imageUrl from CartItemDTO
                   src={item.imageUrl || "/placeholder.svg"}
-                  alt={item.productName} // Use productName from CartItemDTO
+                  alt={item.productName}
                   className="w-full sm:w-24 h-auto sm:h-24 object-cover rounded-lg flex-shrink-0"
                 />
 
                 <div className="flex-1 min-w-0">
                   <h4 className="font-semibold text-gray-900 truncate">{item.productName}</h4>
                   <p className="text-sm text-gray-600">Size: {item.size}</p>
-                   {/* Display original price if discounted */}
-                   {item.discountedPrice < item.price && (
-                      <p className="text-sm text-gray-400 line-through">
-                         {item.price.toLocaleString()}đ
-                      </p>
-                   )}
-                   <p className="text-sm font-medium text-blue-600">
-                     {(item.discountedPrice || item.price).toLocaleString()}đ / item
-                   </p>
+                  {item.discountedPrice < item.price && (
+                    <p className="text-sm text-gray-400 line-through">
+                      {item.price.toLocaleString()}đ
+                    </p>
+                  )}
+                  <p className="text-sm font-medium text-blue-600">
+                    {(item.discountedPrice || item.price).toLocaleString()}đ / item
+                  </p>
                 </div>
 
                 {/* Quantity Controls */}
@@ -152,11 +208,11 @@ export default function Cart() {
                     <Minus className="w-4 h-4 text-gray-700" />
                   </button>
                   <span className="text-gray-900 font-medium w-8 text-center">
-                     {updatingItemId === item.id ? <Loader2 className="w-4 h-4 animate-spin mx-auto"/> : item.quantity}
+                    {updatingItemId === item.id ? <Loader2 className="w-4 h-4 animate-spin mx-auto"/> : item.quantity}
                   </span>
                   <button
                     onClick={() => updateQuantity(item, item.quantity + 1)}
-                     disabled={updatingItemId === item.id} // Add stock check if needed from item details
+                    disabled={updatingItemId === item.id}
                     className="p-2 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50"
                   >
                     <Plus className="w-4 h-4 text-gray-700" />
@@ -168,14 +224,14 @@ export default function Cart() {
                   {((item.discountedPrice || item.price) * item.quantity).toLocaleString()}đ
                 </div>
 
-                 {/* Remove Button */}
+                {/* Remove Button */}
                 <button
                   onClick={() => removeItem(item.id)}
                   disabled={updatingItemId === item.id}
                   className="p-2 text-red-500 hover:text-red-700 rounded-md hover:bg-red-50 disabled:opacity-50 self-center sm:self-auto"
-                   title="Remove item"
+                  title="Remove item"
                 >
-                   {updatingItemId === item.id ? <Loader2 className="w-5 h-5 animate-spin"/> : <Trash2 className="w-5 h-5" />}
+                  {updatingItemId === item.id ? <Loader2 className="w-5 h-5 animate-spin"/> : <Trash2 className="w-5 h-5" />}
                 </button>
               </div>
             ))}
@@ -184,27 +240,33 @@ export default function Cart() {
           {/* Summary */}
           <div className="bg-white rounded-xl shadow-sm p-6 h-fit sticky top-24">
             <h3 className="text-xl font-semibold text-gray-900 mb-4 border-b pb-3">Order Summary</h3>
+            
+            {/* Show selected items count */}
+            <div className="mb-4 text-sm text-gray-600">
+              {selectedItems.size} of {cart?.cartItems?.length || 0} items selected
+            </div>
+
             <div className="space-y-3">
-              {/* Display Original Price if there's a discount */}
-               {cart.discount > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Original Total</span>
-                    <span className="text-gray-500 line-through">{cart.totalOriginalPrice.toLocaleString()}đ</span>
-                  </div>
-               )}
-                {/* Discount Amount */}
-               {cart.discount > 0 && (
-                  <div className="flex justify-between">
-                     <span className="text-green-600">Discount</span>
-                     <span className="text-green-600 font-medium">- {cart.discount.toLocaleString()}đ</span>
-                  </div>
-                )}
-               {/* Subtotal (Discounted Price) */}
+              {/* Original Total if there's a discount */}
+              {discount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Original Total</span>
+                  <span className="text-gray-500 line-through">{originalTotal.toLocaleString()}đ</span>
+                </div>
+              )}
+              {/* Discount Amount */}
+              {discount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-green-600">Discount</span>
+                  <span className="text-green-600 font-medium">- {discount.toLocaleString()}đ</span>
+                </div>
+              )}
+              {/* Subtotal */}
               <div className="flex justify-between">
                 <span className="text-gray-600">Subtotal</span>
                 <span className="text-gray-900 font-medium">{subtotal.toLocaleString()}đ</span>
               </div>
-              {/* Shipping (example) */}
+              {/* Shipping */}
               <div className="flex justify-between">
                 <span className="text-gray-600">Shipping</span>
                 <span className="text-gray-900 font-medium">{shipping > 0 ? `${shipping.toLocaleString()}đ` : 'Free'}</span>
@@ -215,12 +277,20 @@ export default function Cart() {
                 <span className="text-lg font-bold text-blue-600">{total.toLocaleString()}đ</span>
               </div>
             </div>
+            
             <button
-              onClick={() => navigate("/checkout")}
-              disabled={!cart?.cartItems?.length}
+              onClick={() => {
+                if (selectedItems.size === 0) {
+                  toast.error("Please select at least one item to checkout");
+                  return;
+                }
+                sessionStorage.setItem('selectedCartItemIds', JSON.stringify(Array.from(selectedItems)));
+                navigate("/checkout");
+              }}
+              disabled={!cart?.cartItems?.length || selectedItems.size === 0}
               className="mt-6 w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all duration-300 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Proceed to Checkout <ArrowRight className="w-5 h-5" />
+              Proceed to Checkout ({selectedItems.size} items) <ArrowRight className="w-5 h-5" />
             </button>
           </div>
         </div>

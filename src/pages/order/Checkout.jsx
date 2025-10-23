@@ -18,79 +18,116 @@ export default function Checkout() {
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("COD"); // Mặc định là COD
 
-  useEffect(() => {
-    fetchCartAndAddresses();
-  }, []);
+useEffect(() => {
+  fetchCartAndAddresses();
+}, []);
 
-  const fetchCartAndAddresses = async () => {
-    try {
-      setLoadingCart(true);
-      setLoadingAddresses(true);
-      const [cartData, addressesData] = await Promise.all([
-        cartService.getCart(),
-        userService.getAddresses(),
-      ]);
+const fetchCartAndAddresses = async () => {
+  try {
+    setLoadingCart(true);
+    setLoadingAddresses(true);
+    
+    const [cartData, addressesData] = await Promise.all([
+      cartService.getCart(),
+      userService.getAddresses(),
+    ]);
 
-      // Check if cart is empty or invalid
-       if (!cartData || !cartData.cartItems || cartData.cartItems.length === 0) {
-           toast.error("Your cart is empty. Redirecting...");
-           navigate("/cart");
-           return; // Stop further execution
-       }
-
-      setCart(cartData);
-      setAddresses(addressesData || []); // Đảm bảo addressesData là mảng
-      // Select the first address only if addresses exist
-      if (addressesData && addressesData.length > 0 && !selectedAddressId) {
-        setSelectedAddressId(addressesData[0].id); // Chọn địa chỉ đầu tiên làm mặc định if none selected
-      }
-    } catch (error) {
-       toast.error(error.message || "Failed to load checkout data");
-       // If loading cart fails critically, redirect
-       if (error.config?.url?.includes('/cart/me')) {
-           navigate("/cart");
-       }
-    } finally {
-      setLoadingCart(false);
-      setLoadingAddresses(false);
+    // Get selected items from sessionStorage
+    const selectedItemIdsStr = sessionStorage.getItem('selectedCartItemIds');
+    if (!selectedItemIdsStr) {
+      toast.error("No items selected. Redirecting to cart...");
+      navigate("/cart");
+      return;
     }
-  };
+    
+    const selectedItemIds = JSON.parse(selectedItemIdsStr);
+    
+    // Filter cart to only show selected items
+    const filteredCart = {
+      ...cartData,
+      cartItems: cartData.cartItems.filter(item => selectedItemIds.includes(item.id))
+    };
+    
+    // Recalculate totals for selected items
+    const selectedSubtotal = filteredCart.cartItems.reduce((sum, item) => 
+      sum + (item.discountedPrice || item.price) * item.quantity, 0);
+    const selectedOriginalTotal = filteredCart.cartItems.reduce((sum, item) => 
+      sum + item.price * item.quantity, 0);
+    
+    filteredCart.totalDiscountedPrice = selectedSubtotal;
+    filteredCart.totalOriginalPrice = selectedOriginalTotal;
+    filteredCart.discount = selectedOriginalTotal - selectedSubtotal;
+
+    if (filteredCart.cartItems.length === 0) {
+      toast.error("Selected items are no longer available. Redirecting...");
+      navigate("/cart");
+      return;
+    }
+
+    setCart(filteredCart);
+    setAddresses(addressesData || []);
+    
+    if (addressesData && addressesData.length > 0 && !selectedAddressId) {
+      setSelectedAddressId(addressesData[0].id);
+    }
+  } catch (error) {
+    toast.error(error.message || "Failed to load checkout data");
+    if (error.config?.url?.includes('/cart/me')) {
+      navigate("/cart");
+    }
+  } finally {
+    setLoadingCart(false);
+    setLoadingAddresses(false);
+  }
+};
 
    // Use cart data from state, avoid recalculating locally if backend provides totals
   const subtotal = cart?.totalDiscountedPrice ?? 0;
   const shipping = 0; // Replace with cart?.shippingFee if available
   const total = subtotal + shipping;
 
-  const handlePlaceOrder = async () => {
-    if (!selectedAddressId) {
-      toast.error("Please select a shipping address");
-      return;
-    }
-    if (!cart || !cart.cartItems || cart.cartItems.length === 0) {
-      toast.error("Your cart is empty");
-      navigate('/cart'); // Redirect if cart somehow became empty
-      return;
-    }
+const handlePlaceOrder = async () => {
+  if (!selectedAddressId) {
+    toast.error("Please select a shipping address");
+    return;
+  }
+  
+  // Get selected items from sessionStorage
+  const selectedItemIdsStr = sessionStorage.getItem('selectedCartItemIds');
+  if (!selectedItemIdsStr) {
+    toast.error("No items selected for checkout");
+    navigate('/cart');
+    return;
+  }
+  
+  const selectedCartItemIds = JSON.parse(selectedItemIdsStr);
+  
+  if (!selectedCartItemIds || selectedCartItemIds.length === 0) {
+    toast.error("Please select items to checkout");
+    navigate('/cart');
+    return;
+  }
 
-    setIsPlacingOrder(true);
-    let createdOrder = null; // Variable to hold the order details
+  setIsPlacingOrder(true);
+  let createdOrder = null;
 
-    try {
-      const cartItemIds = cart.cartItems.map((item) => item.id);
-      // Pass payment method to createOrder service
-      const orderResponse = await orderService.createOrder(
-        selectedAddressId,
-        cartItemIds,
-        paymentMethod // Pass paymentMethod here
-      );
+  try {
+    // Use selected cart item IDs instead of all items
+    const orderResponse = await orderService.createOrder(
+      selectedAddressId,
+      selectedCartItemIds // ✅ Chỉ gửi selected items
+    );
 
-       createdOrder = orderResponse.order; // Get order details from response
-       toast.success(orderResponse.message || "Order placed successfully!");
+    createdOrder = orderResponse.order;
+    toast.success(orderResponse.message || "Order placed successfully!");
 
-      // Clear local cart state and storage immediately after successful order creation
-      localStorage.removeItem("cart");
-      window.dispatchEvent(new Event("cartUpdated")); // Update header
-      setCart(null); // Clear local cart state
+    // Clear selected items from sessionStorage
+    sessionStorage.removeItem('selectedCartItemIds');
+    
+    // Clear local cart state and storage
+    localStorage.removeItem("cart");
+    window.dispatchEvent(new Event("cartUpdated"));
+    setCart(null);
 
 
       // If VNPAY, proceed to payment creation and redirect
