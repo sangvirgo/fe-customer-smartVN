@@ -51,7 +51,25 @@ const userService = {
     }
   },
 
-  // updateAddress và deleteAddress đã bị xóa vì backend không hỗ trợ
+  /**
+   * Xóa mềm địa chỉ (soft delete)
+   * @param {number} addressId - ID của địa chỉ cần xóa
+   * @returns {Promise<{data: null, message: string}>}
+   */
+  deleteAddress: async (addressId) => {
+    if (!addressId) {
+      throw new Error("Address ID is required.");
+    }
+    try {
+      const response = await axiosInstance.delete(`/users/addresses/${addressId}`);
+      // Backend trả về ApiResponse<Void>: { data: null, message: "Địa chỉ đã được xóa thành công" }
+      return response.data;
+    } catch (error) {
+      console.error(`Error deleting address ${addressId}:`, error);
+      throw error;
+    }
+  },
+  
 };
 
 export default userService;

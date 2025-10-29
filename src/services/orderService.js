@@ -25,13 +25,26 @@ const orderService = {
   },
 
   /**
-   * Lấy lịch sử đơn hàng của người dùng hiện tại
-   * @returns {Promise<{orders: OrderDTO[], messages: string}>}
+   * Lấy đơn hàng của user với filters
+   * @param {Object} filters - Object chứa các filter
+   * @param {number} [filters.orderId] - ID đơn hàng cụ thể
+   * @param {string} [filters.status] - 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'
+   * @param {string} [filters.startDate] - Ngày bắt đầu (format: YYYY-MM-DD)
+   * @param {string} [filters.endDate] - Ngày kết thúc (format: YYYY-MM-DD)
+   * @returns {Promise<{orders: OrderDTO[], message: string, total: number}>}
    */
-  getUserOrders: async () => {
+  getUserOrders: async (filters = {}) => {
     try {
-      const response = await axiosInstance.get("/orders/user");
-      // Backend trả về { orders: List<OrderDTO>, messages: "..." }
+      // ✅ Build params từ filters object
+      const params = {};
+      
+      if (filters.orderId) params.orderId = filters.orderId;
+      if (filters.status) params.status = filters.status;
+      if (filters.startDate) params.startDate = filters.startDate;
+      if (filters.endDate) params.endDate = filters.endDate;
+
+      const response = await axiosInstance.get("/orders/user", { params });
+      // Backend trả về { orders: List<OrderDTO>, message: "...", total: number }
       return response.data;
     } catch (error) {
       console.error("Error fetching user orders:", error);
@@ -39,26 +52,32 @@ const orderService = {
     }
   },
 
+    // ✅ THÊM helper methods để dễ sử dụng
+
   /**
-   * Lấy đơn hàng theo trạng thái
-   * @param {string} orderStatus - 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'
-   * @returns {Promise<{orders: OrderDTO[], messages: string}>}
+   * Lấy đơn hàng theo trạng thái (wrapper của getUserOrders)
+   * @param {string} status - Order status
    */
-getOrdersByStatus: async (orderStatus) => {
-  if (!orderStatus) {
-    throw new Error("Order status is required.");
-  }
-  try {
-    const response = await axiosInstance.get(`/orders/status`, {
-      params: { orderStatus } // ✅ Dùng params object
-    });
-    return response.data;
-  } catch (error) {
-    // ✅ Không cần xử lý 400 nữa vì backend trả 200
-    console.error(`Error fetching orders with status ${orderStatus}:`, error);
-    throw error;
-  }
-},
+  getOrdersByStatus: async (status) => {
+    return orderService.getUserOrders({ status });
+  },
+
+  /**
+   * Lấy đơn hàng trong khoảng thời gian
+   * @param {string} startDate - Format: YYYY-MM-DD
+   * @param {string} endDate - Format: YYYY-MM-DD
+   */
+  getOrdersByDateRange: async (startDate, endDate) => {
+    return orderService.getUserOrders({ startDate, endDate });
+  },
+
+  /**
+   * Tìm đơn hàng theo ID cụ thể trong lịch sử của user
+   * @param {number} orderId
+   */
+  searchOrderById: async (orderId) => {
+    return orderService.getUserOrders({ orderId });
+  },
 
   /**
    * Lấy chi tiết đơn hàng theo ID
