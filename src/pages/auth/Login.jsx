@@ -38,7 +38,12 @@ export default function Login() {
       showToast("Login successful!", "success")
       navigate("/")
     } catch (error) {
-        showToast(error.message || "Login failed. Please try again.", "error")
+        // SỬA Ở ĐÂY:
+        // Chúng ta không cần showToast(error.message) nữa
+        // vì axios interceptor (trong authUtils.js) đã tự động
+        // bắt lỗi 403 và hiển thị thông báo chính xác.
+        // Chúng ta chỉ cần log lỗi ra console để debug.
+        console.error("Login failed:", error.message);
     } finally {
       setLoading(false)
     }

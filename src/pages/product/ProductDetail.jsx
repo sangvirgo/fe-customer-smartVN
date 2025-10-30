@@ -16,7 +16,7 @@ import cartService from "../../services/cartService";
 // Keep existing imports
 import ProductCard from "../../components/ProductCard";
 // Remove addToCart from utils
-// import { addToCart } from "../../utils/cart.js"; // REMOVE THIS
+import { useAuthAction } from '../../hooks/useAuthCheck';
 
 
 export default function ProductDetail() {
@@ -39,6 +39,8 @@ export default function ProductDetail() {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [hasUserReviewed, setHasUserReviewed] = useState(false);
   const [loadingReviews, setLoadingReviews] = useState(false);
+
+  const { checkAuth } = useAuthAction();
 
 
   useEffect(() => {
@@ -138,6 +140,8 @@ export default function ProductDetail() {
    };
 
   const handleAddToCart = async () => {
+    if (!checkAuth("thêm sản phẩm vào giỏ hàng")) return;
+
     if (!isLoggedIn) {
       toast.error("Please login to add items to cart");
       navigate("/login", { state: { from: `/products/${id}` } }); // Redirect to login, pass current location
@@ -460,7 +464,8 @@ export default function ProductDetail() {
                  ) : (
                    <>
                      <ShoppingCart className="w-5 h-5" />
-                     <span>{isLoggedIn ? "Add to Cart" : "Login to Add"}</span>
+                     <button onClick={handleAddToCart}>Add to Cart</button>
+                     {/* <span>{isLoggedIn ? "Add to Cart" : "Login to Add"}</span> */}
                    </>
                  )}
               </button>

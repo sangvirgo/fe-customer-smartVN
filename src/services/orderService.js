@@ -16,7 +16,6 @@ const orderService = {
         addressId,
         cartItemIds,
       });
-      // Backend trả về { order: OrderDTO, message: "..." }
       return response.data;
     } catch (error) {
       console.error("Error creating order:", error);
@@ -24,33 +23,69 @@ const orderService = {
     }
   },
 
-  /**
-   * Lấy đơn hàng của user với filters
-   * @param {Object} filters - Object chứa các filter
-   * @param {number} [filters.orderId] - ID đơn hàng cụ thể
-   * @param {string} [filters.status] - 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'
-   * @param {string} [filters.startDate] - Ngày bắt đầu (format: YYYY-MM-DD)
-   * @param {string} [filters.endDate] - Ngày kết thúc (format: YYYY-MM-DD)
-   * @returns {Promise<{orders: OrderDTO[], message: string, total: number}>}
+/**
+   * Lấy đơn hàng của user với filters (hỗ trợ search by orderId)
+   * @param {Object} filters
+   * @param {number} [filters.orderId] - Search by order ID
+   * @param {string} [filters.status] - Filter by status
+   * @param {string} [filters.startDate] - Start date (YYYY-MM-DD)
+   * @param {string} [filters.endDate] - End date (YYYY-MM-DD)
+   * @param {number} [filters.page=0] - Page number
+   * @param {number} [filters.size=10] - Page size
    */
   getUserOrders: async (filters = {}) => {
     try {
-      // ✅ Build params từ filters object
       const params = {};
       
-      if (filters.orderId) params.orderId = filters.orderId;
+      // Search by orderId
+      if (filters.orderId) {
+        params.orderId = filters.orderId;
+        // Khi search by ID, không cần pagination
+        const response = await axiosInstance.get("/orders/user", { params });
+        
+        const orders = Array.isArray(response.data.orders) 
+          ? response.data.orders 
+          : [response.data.orders].filter(Boolean);
+          
+        return {
+          orders,
+          totalPages: orders.length > 0 ? 1 : 0,
+          totalElements: orders.length,
+          message: response.data.message
+        };
+      }
+      
+      // Normal filtering
       if (filters.status) params.status = filters.status;
       if (filters.startDate) params.startDate = filters.startDate;
       if (filters.endDate) params.endDate = filters.endDate;
+      if (filters.page !== undefined) params.page = filters.page;
+      if (filters.size !== undefined) params.size = filters.size;
 
       const response = await axiosInstance.get("/orders/user", { params });
-      // Backend trả về { orders: List<OrderDTO>, message: "...", total: number }
-      return response.data;
+      
+      return {
+        orders: response.data.orders || [],
+        totalPages: response.data.totalPages || 0,
+        totalElements: response.data.total || 0,
+        message: response.data.message
+      };
     } catch (error) {
       console.error("Error fetching user orders:", error);
+      
+      if (error.response?.data?.code === 'EMPTY_ORDER') {
+        return {
+          orders: [],
+          totalPages: 0,
+          totalElements: 0,
+          message: error.response.data.message
+        };
+      }
+      
       throw error;
     }
   },
+
 
     // ✅ THÊM helper methods để dễ sử dụng
 

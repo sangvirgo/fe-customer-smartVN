@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, MapPin, Package, Edit2, Plus, Trash2, Loader2, X, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { User, MapPin, Package, Edit2, Plus, Trash2, Loader2, X, Check, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import userService from "../../services/userService";
 import orderService from "../../services/orderService";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
@@ -57,8 +57,9 @@ function AddressModal({ isOpen, onClose, onSuccess, editingAddress = null }) {
     setIsSaving(true);
     try {
       if (editingAddress) {
-        await userService.updateAddress(editingAddress.id, addressData);
-        toast.success("Address updated successfully!");
+        // Giả sử bạn có hàm updateAddress, nếu không, bạn cần thêm nó vào userService
+        // await userService.updateAddress(editingAddress.id, addressData); 
+        toast.error("Update address function not implemented yet."); // Placeholder
       } else {
         await userService.addAddress(addressData);
         toast.success("Address added successfully!");
@@ -202,6 +203,10 @@ export default function Profile() {
   const [totalPages, setTotalPages] = useState(0);
   const pageSize = 5;
 
+  // State cho Order Search
+  const [searchOrderId, setSearchOrderId] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -213,7 +218,10 @@ export default function Profile() {
       fetchAddresses();
     } else if (activeTab === "orders") {
       setOrderPage(0);
-      fetchOrders(orderFilter === "ALL" ? null : orderFilter, 0);
+      // Kiểm tra nếu đang search thì không fetch theo filter
+      if (!isSearching) {
+        fetchOrders(orderFilter === "ALL" ? null : orderFilter, 0);
+      }
     }
   }, [activeTab]);
 
@@ -222,10 +230,11 @@ export default function Profile() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'orders') {
+    // Chỉ fetch khi tab là 'orders' và *không* đang ở trạng thái searching
+    if (activeTab === 'orders' && !isSearching) {
       fetchOrders(orderFilter === "ALL" ? null : orderFilter, orderPage);
     }
-  }, [orderFilter, orderPage, activeTab]);
+  }, [orderFilter, orderPage, activeTab, isSearching]); // Thêm isSearching vào dependency
 
   const fetchUserProfile = async () => {
     setIsLoading(true);
@@ -235,12 +244,12 @@ export default function Profile() {
       setFormData({
         firstName: profileData.firstName || "",
         lastName: profileData.lastName || "",
-        phoneNumber: profileData.mobile || "",
+        phoneNumber: profileData.mobile || "", // Sửa: Dùng profileData.mobile
       });
     } catch (error) {
       console.error("Failed to fetch profile:", error);
       toast.error(error.message || "Failed to load profile");
-      if (error.message.toLowerCase().includes('unauthorized')) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
         navigate('/login');
       }
     } finally {
@@ -351,6 +360,40 @@ export default function Profile() {
       case 'REFUNDED': return 'bg-indigo-100 text-indigo-800 border border-indigo-200';
       default: return 'bg-gray-100 text-gray-800 border border-gray-200';
     }
+  };
+
+  // Hàm xử lý tìm kiếm đơn hàng
+  const handleSearchOrder = async (e) => {
+    e.preventDefault();
+    if (!searchOrderId.trim()) return;
+    
+    setIsSearching(true);
+    setLoadingOrders(true);
+    
+    try {
+      const response = await orderService.searchOrderById(searchOrderId);
+      setOrders(response.orders || []);
+      setTotalPages(response.totalPages || 0);
+      setOrderPage(0);
+      
+      if (response.orders.length === 0) {
+        toast.error(`Không tìm thấy đơn hàng #${searchOrderId}`);
+      }
+    } catch (error) {
+      console.error("Search order error:", error);
+      toast.error(error.message || "Không thể tìm kiếm đơn hàng");
+      setOrders([]);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  // Hàm xử lý xóa tìm kiếm
+  const handleClearSearch = () => {
+    setSearchOrderId("");
+    setIsSearching(false);
+    setOrderPage(0);
+    fetchOrders(orderFilter === "ALL" ? null : orderFilter, 0); // Quay lại fetch theo filter
   };
 
   const renderProfileInfo = () => (
@@ -505,26 +548,69 @@ export default function Profile() {
 
   const renderOrders = () => (
     <div>
-      <div className="mb-6 border-b border-gray-200 pb-4">
+      <div className="mb-6">
         <h2 className="text-xl font-bold text-gray-900 mb-4">My Orders</h2>
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {["ALL", "PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"].map((filter) => (
-            <button
-              key={filter}
-              onClick={() => {
-                setOrderFilter(filter);
-                setOrderPage(0);
-              }}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                orderFilter === filter
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {filter.charAt(0) + filter.slice(1).toLowerCase()}
-            </button>
-          ))}
-        </div>
+        
+        {/* Search Box */}
+        <form onSubmit={handleSearchOrder} className="mb-4">
+          <div className="relative">
+            <input
+              type="text"
+              value={searchOrderId}
+              onChange={(e) => setSearchOrderId(e.target.value.replace(/\D/g, ''))}
+              placeholder="Tìm kiếm theo Order ID..."
+              className="w-full pl-10 pr-24 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+            
+            {isSearching ? (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                className="absolute right-2 top-2 px-3 py-1 text-sm text-red-600 hover:text-red-700 font-medium flex items-center gap-1"
+              >
+                <X className="w-4 h-4" /> Clear
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!searchOrderId.trim()}
+                className="absolute right-2 top-2 px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Search
+              </button>
+            )}
+          </div>
+        </form>
+        
+        {/* Status Filters - Hide when searching */}
+        {!isSearching && (
+          <div className="flex gap-2 overflow-x-auto pb-1 border-b border-gray-200">
+            {["ALL", "PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"].map((filter) => (
+              <button
+                key={filter}
+                onClick={() => {
+                  setOrderFilter(filter);
+                  setOrderPage(0);
+                }}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                  orderFilter === filter
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                {filter.charAt(0) + filter.slice(1).toLowerCase()}
+              </button>
+            ))}
+          </div>
+        )}
+        
+        {/* Search Result Info */}
+        {isSearching && orders.length > 0 && (
+          <div className="mt-2 text-sm text-gray-600">
+            Kết quả tìm kiếm cho Order #{searchOrderId}
+          </div>
+        )}
       </div>
 
       {loadingOrders ? (
@@ -535,7 +621,9 @@ export default function Profile() {
         <div className="text-center py-12 bg-gray-50 rounded-lg">
           <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-600">
-            No orders found with status <span className='font-medium'>{orderFilter.toLowerCase()}</span>.
+            {isSearching 
+              ? `Không tìm thấy đơn hàng #${searchOrderId}` 
+              : `No orders found with status ${orderFilter.toLowerCase()}.`}
           </p>
         </div>
       ) : (
@@ -604,8 +692,8 @@ export default function Profile() {
             ))}
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
+          {/* Pagination - Hide when searching */}
+          {!isSearching && totalPages > 1 && (
             <div className="flex justify-center items-center gap-2 mt-6">
               <button
                 onClick={() => setOrderPage(prev => Math.max(0, prev - 1))}

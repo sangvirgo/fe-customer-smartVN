@@ -1,11 +1,11 @@
+import { showToast } from '../components/Toast'; // THÊM DÒNG NÀY
+
 /**
- * Auth Utilities - JWT Validation & User Status Check
+ * Enhanced Auth Utilities - JWT Validation & User Status Check
  */
 
 /**
  * Decode JWT token mà không verify (chỉ để đọc payload)
- * @param {string} token - JWT token
- * @returns {Object|null} Decoded payload hoặc null nếu invalid
  */
 export const decodeToken = (token) => {
   if (!token) return null;
@@ -14,7 +14,6 @@ export const decodeToken = (token) => {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
 
-    // Decode base64url
     const payload = parts[1];
     const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
     const decoded = JSON.parse(atob(base64));
@@ -28,36 +27,29 @@ export const decodeToken = (token) => {
 
 /**
  * Kiểm tra JWT token có hết hạn chưa
- * @param {string} token - JWT token
- * @returns {boolean} true nếu token đã hết hạn
  */
 export const isTokenExpired = (token) => {
   const decoded = decodeToken(token);
   if (!decoded || !decoded.exp) return true;
 
-  // exp là timestamp (seconds), Date.now() là milliseconds
   const currentTime = Date.now() / 1000;
   return decoded.exp < currentTime;
 };
 
 /**
  * Kiểm tra token sắp hết hạn (trong vòng 5 phút)
- * @param {string} token - JWT token
- * @returns {boolean} true nếu token sắp hết hạn
  */
 export const isTokenExpiringSoon = (token) => {
   const decoded = decodeToken(token);
   if (!decoded || !decoded.exp) return true;
 
   const currentTime = Date.now() / 1000;
-  const fiveMinutes = 5 * 60; // 5 phút
+  const fiveMinutes = 5 * 60;
   return decoded.exp - currentTime < fiveMinutes;
 };
 
 /**
  * Lấy thời gian còn lại của token (seconds)
- * @param {string} token - JWT token
- * @returns {number} Số giây còn lại, hoặc 0 nếu đã hết hạn
  */
 export const getTokenRemainingTime = (token) => {
   const decoded = decodeToken(token);
@@ -70,12 +62,11 @@ export const getTokenRemainingTime = (token) => {
 
 /**
  * Kiểm tra user có active không (từ localStorage)
- * @returns {boolean} true nếu user active
  */
 export const isUserActive = () => {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    // Kiểm tra các field có thể có: active, isActive, status === 'ACTIVE'
+    // Kiểm tra nhiều trường hợp: active, isActive, status
     return user.active === true || 
            user.isActive === true || 
            user.status === 'ACTIVE' ||
@@ -86,31 +77,89 @@ export const isUserActive = () => {
 };
 
 /**
+ * Phân tích message từ backend để xác định lý do auth fail
+ */
+export const analyzeErrorMessage = (message) => {
+  if (!message) return "UNKNOWN_ERROR";
+  
+  const lowerMessage = message.toLowerCase();
+  
+  // Token expired
+  if (lowerMessage.includes("token") && 
+      (lowerMessage.includes("expired") || lowerMessage.includes("hết hạn"))) {
+    return "TOKEN_EXPIRED";
+  }
+  
+  // Account locked/banned
+  if (lowerMessage.includes("khóa") || 
+      lowerMessage.includes("ban") || 
+      lowerMessage.includes("locked") ||
+      lowerMessage.includes("bị vô hiệu")) {
+    return "ACCOUNT_BANNED";
+  }
+  
+  // Account inactive
+  if (lowerMessage.includes("inactive") || 
+      lowerMessage.includes("không hoạt động")) {
+    return "ACCOUNT_INACTIVE";
+  }
+  
+  // Invalid token
+  if (lowerMessage.includes("invalid") || 
+      lowerMessage.includes("không hợp lệ")) {
+    return "INVALID_TOKEN";
+  }
+  
+  // Unauthorized
+  if (lowerMessage.includes("unauthorized") || 
+      lowerMessage.includes("không được phép")) {
+    return "UNAUTHORIZED";
+  }
+  
+  return "UNKNOWN_ERROR";
+};
+
+/**
  * Validate auth state - Kiểm tra token + user status
- * @returns {{valid: boolean, reason?: string}}
  */
 export const validateAuthState = () => {
   const token = localStorage.getItem("accessToken");
   const user = localStorage.getItem("user");
 
-  // Không có token
+  // 1. Không có token
   if (!token) {
-    return { valid: false, reason: "NO_TOKEN" };
+    return { 
+      valid: false, 
+      reason: "NO_TOKEN",
+      message: "Vui lòng đăng nhập để tiếp tục" 
+    };
   }
 
-  // Token hết hạn
+  // 2. Token hết hạn
   if (isTokenExpired(token)) {
-    return { valid: false, reason: "TOKEN_EXPIRED" };
+    return { 
+      valid: false, 
+      reason: "TOKEN_EXPIRED",
+      message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." 
+    };
   }
 
-  // Không có user data
+  // 3. Không có user data
   if (!user) {
-    return { valid: false, reason: "NO_USER_DATA" };
+    return { 
+      valid: false, 
+      reason: "NO_USER_DATA",
+      message: "Vui lòng đăng nhập lại" 
+    };
   }
 
-  // User không active
+  // 4. User không active
   if (!isUserActive()) {
-    return { valid: false, reason: "USER_INACTIVE" };
+    return { 
+      valid: false, 
+      reason: "USER_INACTIVE",
+      message: "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ hỗ trợ." 
+    };
   }
 
   return { valid: true };
@@ -118,84 +167,119 @@ export const validateAuthState = () => {
 
 /**
  * Clear auth state và redirect về login
- * @param {string} message - Message để hiển thị
  */
-export const forceLogout = (message = "Phiên đăng nhập đã hết hạn") => {
+export const forceLogout = (message = "Phiên đăng nhập đã hết hạn", redirectPath = "/login") => {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("user");
   localStorage.removeItem("cart");
+  
   window.dispatchEvent(new Event("auth-change"));
 
-  if (window.showToast) {
-    window.showToast(message, "error");
+  // SỬA: Gọi showToast trực tiếp
+  if (typeof showToast === 'function') {
+    showToast(message, "error");
+  } else {
+    console.error("showToast function not available");
   }
 
   setTimeout(() => {
-    if (window.location.pathname !== "/login") {
-      window.location.href = "/login";
+    if (window.location.pathname !== redirectPath) {
+      window.location.href = redirectPath;
     }
   }, 1500);
 };
 
 /**
- * Auto-check auth state (dùng trong useEffect)
- * @param {Function} onInvalid - Callback khi auth invalid
+ * Handle error từ API - Xử lý lỗi từ axios interceptor
  */
-export const setupAuthCheck = (onInvalid) => {
-  // Check ngay lập tức
-  const { valid, reason } = validateAuthState();
-  if (!valid) {
-    let message = "Vui lòng đăng nhập lại";
+export const handleAuthError = (error) => {
+  const status = error.response?.status;
+  const message = error.response?.data?.message || error.message;
+  
+  // 401 - Unauthorized
+  if (status === 401) {
+    const reason = analyzeErrorMessage(message);
     
-    switch(reason) {
+    switch (reason) {
       case "TOKEN_EXPIRED":
-        message = "Phiên đăng nhập đã hết hạn";
+        forceLogout("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
         break;
-      case "USER_INACTIVE":
-        message = "Tài khoản của bạn đã bị khóa";
+        
+      case "INVALID_TOKEN":
+        forceLogout("Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.");
         break;
-      case "NO_TOKEN":
-      case "NO_USER_DATA":
-        message = "Vui lòng đăng nhập";
-        break;
+        
+      default:
+        forceLogout(message || "Vui lòng đăng nhập lại");
     }
+    
+    return true; // Đã xử lý
+  }
+  
+  // 403 - Forbidden (Account banned/locked)
+  if (status === 403) {
+    const reason = analyzeErrorMessage(message);
+    
+    if (reason === "ACCOUNT_BANNED" || reason === "ACCOUNT_INACTIVE") {
+      forceLogout(message || "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ hỗ trợ.");
+      return true;
+    }
+    
+    // 403 khác (thiếu quyền truy cập resource)
+    // SỬA: Gọi showToast trực tiếp
+    if (typeof showToast === 'function') {
+      showToast(message || "Bạn không có quyền truy cập", "error");
+    }
+    return true;
+  }
+  
+  return false; // Không phải lỗi auth
+};
 
+/**
+ * Auto-check auth định kỳ (dùng trong useEffect)
+ */
+export const setupAuthCheck = (onInvalid, intervalMs = 30000) => {
+  // Check ngay lập tức
+  const { valid, reason, message } = validateAuthState();
+  
+  if (!valid) {
     if (onInvalid) {
       onInvalid(reason, message);
     } else {
       forceLogout(message);
     }
-    return;
+    return () => {}; // Return empty cleanup
   }
 
-  // Setup interval check mỗi 30s
-  const intervalId = setInterval(() => {
-    const { valid, reason } = validateAuthState();
-    if (!valid) {
-      clearInterval(intervalId);
+  // Setup interval check (nếu intervalMs có giá trị)
+  let intervalId = null;
+  if (intervalMs) {
+    intervalId = setInterval(() => {
+      const { valid, reason, message } = validateAuthState();
       
-      let message = "Vui lòng đăng nhập lại";
-      if (reason === "TOKEN_EXPIRED") {
-        message = "Phiên đăng nhập đã hết hạn";
-      } else if (reason === "USER_INACTIVE") {
-        message = "Tài khoản của bạn đã bị khóa";
+      if (!valid) {
+        clearInterval(intervalId);
+        
+        if (onInvalid) {
+          onInvalid(reason, message);
+        } else {
+          forceLogout(message);
+        }
       }
+    }, intervalMs);
+  }
 
-      if (onInvalid) {
-        onInvalid(reason, message);
-      } else {
-        forceLogout(message);
-      }
+  // Return cleanup function
+  return () => {
+    if (intervalId) {
+      clearInterval(intervalId);
     }
-  }, 30000); // Check mỗi 30s
-
-  return () => clearInterval(intervalId);
+  };
 };
 
 /**
  * Get user info từ token (fallback nếu localStorage không có)
- * @param {string} token - JWT token
- * @returns {Object|null} User info
  */
 export const getUserFromToken = (token) => {
   const decoded = decodeToken(token);

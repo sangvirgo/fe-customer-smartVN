@@ -1,107 +1,80 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { validateAuthState, forceLogout } from '../utils/authUtils';
+import { validateAuthState, setupAuthCheck, forceLogout } from '../utils/authUtils';
 import { showToast } from '../components/Toast';
 
 /**
- * Hook để tự động check auth state trong protected components
- * @param {Object} options - Configuration options
- * @param {boolean} options.checkOnMount - Check ngay khi mount (default: true)
- * @param {boolean} options.checkInterval - Check định kỳ (default: true)
- * @param {number} options.intervalTime - Thời gian check (ms) (default: 30000)
- * @param {boolean} options.redirect - Tự động redirect về login (default: true)
+ * Hook để auto-check auth trong protected components
  */
 export const useAuthCheck = (options = {}) => {
   const navigate = useNavigate();
   const {
     checkOnMount = true,
     checkInterval = true,
-    intervalTime = 30000, // 30s
+    intervalTime = 30000,
     redirect = true,
   } = options;
 
   useEffect(() => {
-    const handleInvalidAuth = (reason, message) => {
-      showToast(message, "error");
-      
-      if (redirect) {
-        setTimeout(() => {
-          navigate("/login", { replace: true });
-        }, 1500);
-      }
-    };
+    if (!checkOnMount && !checkInterval) return;
 
-    // Check ngay khi mount
-    if (checkOnMount) {
-      const { valid, reason } = validateAuthState();
-      if (!valid) {
-        let message = "Vui lòng đăng nhập lại";
+    const cleanup = setupAuthCheck(
+      (reason, message) => {
+        // Đảm bảo showToast tồn tại
+        if (typeof window.showToast === 'function') {
+          window.showToast(message, "error");
+        } else {
+          console.error("showToast function not available globally");
+        }
         
-        switch(reason) {
-          case "TOKEN_EXPIRED":
-            message = "Phiên đăng nhập đã hết hạn";
-            break;
-          case "USER_INACTIVE":
-            message = "Tài khoản của bạn đã bị khóa";
-            break;
-          case "NO_TOKEN":
-          case "NO_USER_DATA":
-            message = "Vui lòng đăng nhập";
-            break;
+        if (redirect) {
+          setTimeout(() => {
+            navigate("/login", { replace: true });
+          }, 1500);
         }
+      },
+      checkInterval ? intervalTime : null
+    );
 
-        handleInvalidAuth(reason, message);
-        return;
-      }
-    }
-
-    // Setup interval check
-    if (checkInterval) {
-      const intervalId = setInterval(() => {
-        const { valid, reason } = validateAuthState();
-        if (!valid) {
-          clearInterval(intervalId);
-          
-          let message = "Vui lòng đăng nhập lại";
-          if (reason === "TOKEN_EXPIRED") {
-            message = "Phiên đăng nhập đã hết hạn";
-          } else if (reason === "USER_INACTIVE") {
-            message = "Tài khoản của bạn đã bị khóa";
-          }
-
-          handleInvalidAuth(reason, message);
-        }
-      }, intervalTime);
-
-      return () => clearInterval(intervalId);
-    }
+    return cleanup;
   }, [checkOnMount, checkInterval, intervalTime, redirect, navigate]);
 };
 
 /**
- * Hook đơn giản hơn - chỉ check và logout
+ * Hook đơn giản - chỉ check ngay và logout
  */
 export const useAuthGuard = () => {
   useEffect(() => {
-    const { valid, reason } = validateAuthState();
+    const { valid, message } = validateAuthState();
     
     if (!valid) {
-      let message = "Vui lòng đăng nhập lại";
-      
-      switch(reason) {
-        case "TOKEN_EXPIRED":
-          message = "Phiên đăng nhập đã hết hạn";
-          break;
-        case "USER_INACTIVE":
-          message = "Tài khoản của bạn đã bị khóa";
-          break;
-        case "NO_TOKEN":
-        case "NO_USER_DATA":
-          message = "Vui lòng đăng nhập";
-          break;
-      }
-
       forceLogout(message);
     }
   }, []);
+};
+
+/**
+ * Hook check trước khi action (ví dụ: checkout, add to cart)
+ */
+export const useAuthAction = () => {
+  const { valid, message } = validateAuthState();
+  
+  return {
+    isAuthenticated: valid,
+    checkAuth: (actionMessage) => {
+      if (!valid) {
+        if (typeof window.showToast === 'function') {
+          window.showToast(message || `Vui lòng đăng nhập để ${actionMessage}`, "error");
+        }
+        setTimeout(() => {
+          // Chuyển hướng về trang login
+          if (window.location.pathname !== "/login") {
+            window.location.href = "/login";
+          }
+        }, 1500);
+        return false;
+      }
+      return true;
+    }
+  };
 };
