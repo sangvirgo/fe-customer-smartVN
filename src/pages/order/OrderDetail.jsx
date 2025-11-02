@@ -241,15 +241,14 @@ export default function OrderDetail() {
                   <p className="font-semibold text-gray-900">{(item.discountedPrice || item.price).toLocaleString()}đ</p>
                    <p className="text-sm text-gray-600 mt-1">x {item.quantity}</p>
                    {/* Show Write Review Button only if delivered and maybe check if already reviewed */}
-                   {order.orderStatus === "DELIVERED" && (
-                     <button
-                       onClick={() => handleWriteReview(item)}
-                       // Optionally disable if item.hasReview or similar flag exists
-                       className="mt-2 text-xs text-blue-600 hover:text-blue-700 font-medium underline disabled:text-gray-400 disabled:no-underline"
-                     >
-                       Write Review
-                     </button>
-                   )}
+                    {order.orderStatus === "DELIVERED" && (
+                        <Link
+                        to={`/products/${item.productId}`}
+                        className="mt-2 text-xs text-blue-600 hover:text-blue-700 font-medium underline disabled:text-gray-400 disabled:no-underline"
+                        >
+                        Write Review
+                        </Link>
+                    )}
                 </div>
               </div>
             ))}

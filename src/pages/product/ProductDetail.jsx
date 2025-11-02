@@ -551,216 +551,80 @@ export default function ProductDetail() {
                     <p className="text-sm text-yellow-800">
                       Please <Link to="/login" state={{ from: `/products/${id}` }} className="font-semibold underline hover:text-yellow-900">login</Link> to write a review.
                     </p>
-                  </div
-
-        {/* Tabs: Description, Details, Reviews */}
-         <div className="bg-white rounded-lg shadow-sm mb-8">
-             {/* Tab Headers */}
-            <div className="border-b border-gray-200">
-                <div className="flex space-x-8 px-6">
-                <button onClick={() => setActiveTab("description")} className={`py-4 font-semibold border-b-2 transition-colors ${activeTab === "description" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-600 hover:text-gray-900"}`}>Description</button>
-                <button onClick={() => setActiveTab("specifications")} className={`py-4 font-semibold border-b-2 transition-colors ${activeTab === "specifications" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-600 hover:text-gray-900"}`}>Details</button>
-                 {/* Show review count from product data */}
-                <button onClick={() => setActiveTab("reviews")} className={`py-4 font-semibold border-b-2 transition-colors ${activeTab === "reviews" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-600 hover:text-gray-900"}`}>Reviews ({product.numRatings || 0})</button>
-                </div>
-            </div>
-             {/* Tab Content */}
-            <div className="p-6 min-h-[200px]"> {/* Added min-height */}
-                {/* Description */}
-                {activeTab === "description" && (
-                   <div className="prose prose-sm sm:prose-base max-w-none text-gray-700 leading-relaxed">
-                      {product.description || "No description available."}
-                   </div>
-                )}
-                {/* Specifications/Details */}
-                {activeTab === "specifications" && (
-                    <div className="space-y-3 text-sm">
-                       <h3 className="text-lg font-semibold mb-3 text-gray-800">Product Details</h3>
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
-                            {/* Dynamically display available details */}
-                           {product.brand && <div className="flex justify-between border-b py-1.5"><span className="font-medium text-gray-600">Brand:</span><span className="text-gray-800">{product.brand}</span></div>}
-                           {product.color && <div className="flex justify-between border-b py-1.5"><span className="font-medium text-gray-600">Color:</span><span className="text-gray-800">{product.color}</span></div>}
-                           {product.weight && <div className="flex justify-between border-b py-1.5"><span className="font-medium text-gray-600">Weight:</span><span className="text-gray-800">{product.weight}</span></div>}
-                           {product.dimension && <div className="flex justify-between border-b py-1.5"><span className="font-medium text-gray-600">Dimensions:</span><span className="text-gray-800">{product.dimension}</span></div>}
-                           {product.ramCapacity && <div className="flex justify-between border-b py-1.5"><span className="font-medium text-gray-600">RAM:</span><span className="text-gray-800">{product.ramCapacity}</span></div>}
-                           {product.romCapacity && <div className="flex justify-between border-b py-1.5"><span className="font-medium text-gray-600">Storage:</span><span className="text-gray-800">{product.romCapacity}</span></div>}
-                           {product.screenSize && <div className="flex justify-between border-b py-1.5"><span className="font-medium text-gray-600">Screen Size:</span><span className="text-gray-800">{product.screenSize}</span></div>}
-                           {product.batteryCapacity && <div className="flex justify-between border-b py-1.5"><span className="font-medium text-gray-600">Battery:</span><span className="text-gray-800">{product.batteryCapacity}</span></div>}
-                            {/* Add more fields as needed based on ProductDetailDTO */}
-                       </div>
-                        {!product.brand && !product.color /* etc. */ && <p className="text-gray-500">No specific details available.</p>}
-                    </div>
-                )}
-                {/* Reviews */}
-                {activeTab === "reviews" && (
-                  <div className="space-y-6">
-                    <h3 className="text-lg font-semibold text-gray-800">Customer Reviews</h3>
-
-                    {/* Write Review Section */}
-                     {isLoggedIn ? (
-                        hasUserReviewed ? (
-                           // Already Reviewed Message
-                           <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
-                               <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-                               <p className="text-sm text-green-800">You have already reviewed this product. Thank you for your feedback!</p>
-                           </div>
-                        ) : (
-                           // Write Review Form / Button
-                           showReviewForm ? (
-                              // Form
-                              <form onSubmit={handleSubmitReview} className="p-4 border border-gray-200 rounded-lg bg-gray-50 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <label className="block text-sm font-medium text-gray-700">Your Rating:</label>
-                                     <div className="flex items-center space-x-1">
-                                       {[1, 2, 3, 4, 5].map((star) => (
-                                         <button
-                                           key={star}
-                                           type="button"
-                                           onClick={() => setReviewForm({ ...reviewForm, rating: star })}
-                                           className="focus:outline-none transition-transform hover:scale-110"
-                                         >
-                                           <Star
-                                             className={`w-6 h-6 ${
-                                               star <= reviewForm.rating
-                                                 ? "text-yellow-400 fill-yellow-400"
-                                                 : "text-gray-300 hover:text-gray-400"
-                                             }`}
-                                           />
-                                         </button>
-                                       ))}
-                                     </div>
-                                </div>
-                                <div>
-                                  <label htmlFor="reviewContent" className="sr-only">Your Review</label>
-                                  <textarea
-                                     id="reviewContent"
-                                    value={reviewForm.content}
-                                    onChange={(e) => setReviewForm({ ...reviewForm, content: e.target.value })}
-                                    placeholder="Share your experience..."
-                                    rows={4}
-                                    maxLength={500}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                    required
-                                  />
-                                   <p className="text-xs text-gray-500 mt-1 text-right">{reviewForm.content.length}/500</p>
-                                </div>
-                                <div className="flex justify-end gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setShowReviewForm(false);
-                                      setReviewForm({ rating: 5, content: "" }); // Reset on cancel
-                                    }}
-                                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100 text-sm font-medium"
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button
-                                    type="submit"
-                                    disabled={submittingReview}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium disabled:opacity-50 flex items-center gap-1.5"
-                                  >
-                                    {submittingReview && <Loader2 className="w-4 h-4 animate-spin"/>}
-                                    Submit Review
-                                  </button>
-                                </div>
-                              </form>
-                           ) : (
-                               // Button to show form
-                               <div className="text-center p-4 border border-dashed border-gray-300 rounded-lg">
-                                   <p className="text-gray-600 mb-3 text-sm">Have you used this product? Share your thoughts!</p>
-                                   <button
-                                     onClick={() => setShowReviewForm(true)}
-                                     className="px-5 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 text-sm"
-                                   >
-                                     Write a Review
-                                   </button>
-                               </div>
-                           )
-                        )
-                     ) : (
-                        // Not Logged In Message
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center gap-3">
-                           <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
-                           <p className="text-sm text-yellow-800">
-                               Please <Link to="/login" state={{ from: `/products/${id}` }} className="font-semibold underline hover:text-yellow-900">login</Link> to write a review.
-                           </p>
-                        </div>
-                     )}
-
-
-                    {/* Reviews List */}
-                     {loadingReviews ? (
-                         <div className="flex justify-center py-6"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
-                     ) : reviewsPage.content.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">No reviews yet.</div>
-                     ) : (
-                       <div className="space-y-5">
-                         {reviewsPage.content.map((review) => (
-                           <div key={review.id} className="border-b border-gray-100 pb-5 last:border-0">
-                             <div className="flex items-center justify-between mb-1.5">
-                               <div className="flex items-center space-x-2">
-                                 {/* Simple Avatar Placeholder */}
-                                 <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                                   <span className="text-sm font-semibold text-gray-600">
-                                     {review.userFirstName?.charAt(0).toUpperCase()}
-                                   </span>
-                                 </div>
-                                 <div>
-                                   <p className="font-medium text-sm text-gray-800">
-                                     {review.userFirstName} {review.userLastName}
-                                   </p>
-                                   <p className="text-xs text-gray-500">
-                                     {new Date(review.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                   </p>
-                                 </div>
-                               </div>
-                               {/* Rating Stars */}
-                               <div className="flex items-center">
-                                 {[...Array(5)].map((_, i) => (
-                                   <Star
-                                     key={i}
-                                     className={`w-4 h-4 ${
-                                       i < review.rating
-                                         ? "text-yellow-400 fill-yellow-400"
-                                         : "text-gray-300"
-                                     }`}
-                                   />
-                                 ))}
-                               </div>
-                             </div>
-                             {/* Review Content */}
-                             <p className="text-gray-700 text-sm leading-relaxed mt-2">{review.reviewContent || ""}</p>
-                           </div>
-                         ))}
-                       </div>
-                     )}
-
-                     {/* Review Pagination */}
-                     {reviewsPage.totalPages > 1 && (
-                         <div className="flex justify-center items-center space-x-2 mt-6 text-sm">
-                             <button
-                                 onClick={() => handleReviewPageChange(reviewsPage.number - 1)}
-                                 disabled={reviewsPage.number === 0}
-                                 className="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
-                             >
-                                 Previous
-                             </button>
-                             <span>Page {reviewsPage.number + 1} of {reviewsPage.totalPages}</span>
-                             <button
-                                 onClick={() => handleReviewPageChange(reviewsPage.number + 1)}
-                                 disabled={reviewsPage.number === reviewsPage.totalPages - 1}
-                                 className="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
-                             >
-                                 Next
-                             </button>
-                         </div>
-                     )}
                   </div>
                 )}
-            </div>
-        </div>
 
+                {/* Reviews List */}
+                 {loadingReviews ? (
+                     <div className="flex justify-center py-6"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+                 ) : reviewsPage.content.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">No reviews yet.</div>
+                 ) : (
+                   <div className="space-y-5">
+                     {reviewsPage.content.map((review) => (
+                       <div key={review.id} className="border-b border-gray-100 pb-5 last:border-0">
+                         <div className="flex items-center justify-between mb-1.5">
+                           <div className="flex items-center space-x-2">
+                             {/* Simple Avatar Placeholder */}
+                             <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                               <span className="text-sm font-semibold text-gray-600">
+                                 {review.userFirstName?.charAt(0).toUpperCase()}
+                               </span>
+                             </div>
+                             <div>
+                               <p className="font-medium text-sm text-gray-800">
+                                 {review.userFirstName} {review.userLastName}
+                               </p>
+                               <p className="text-xs text-gray-500">
+                                 {new Date(review.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                               </p>
+                             </div>
+                           </div>
+                           {/* Rating Stars */}
+                           <div className="flex items-center">
+                             {[...Array(5)].map((_, i) => (
+                               <Star
+                                 key={i}
+                                 className={`w-4 h-4 ${
+                                   i < review.rating
+                                     ? "text-yellow-400 fill-yellow-400"
+                                     : "text-gray-300"
+                                 }`}
+                               />
+                             ))}
+                           </div>
+                         </div>
+                         {/* Review Content */}
+                         <p className="text-gray-700 text-sm leading-relaxed mt-2">{review.reviewContent || ""}</p>
+                       </div>
+                     ))}
+                   </div>
+                 )}
+
+                 {/* Review Pagination */}
+                 {reviewsPage.totalPages > 1 && (
+                     <div className="flex justify-center items-center space-x-2 mt-6 text-sm">
+                         <button
+                             onClick={() => handleReviewPageChange(reviewsPage.number - 1)}
+                             disabled={reviewsPage.number === 0}
+                             className="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                         >
+                             Previous
+                         </button>
+                         <span>Page {reviewsPage.number + 1} of {reviewsPage.totalPages}</span>
+                         <button
+                             onClick={() => handleReviewPageChange(reviewsPage.number + 1)}
+                             disabled={reviewsPage.number === reviewsPage.totalPages - 1}
+                             className="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                         >
+                             Next
+                         </button>
+                     </div>
+                 )}
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Related Products */}
         {relatedProducts.length > 0 && (

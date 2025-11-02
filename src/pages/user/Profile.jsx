@@ -6,7 +6,7 @@ import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import toast from 'react-hot-toast';
 
 // Edit/Add Address Modal Component
-function AddressModal({ isOpen, onClose, onSuccess, editingAddress = null }) {
+function AddressModal({ isOpen, onClose, onSuccess= null }) {
   const [addressData, setAddressData] = useState({
     fullName: "",
     phoneNumber: "",
@@ -17,27 +17,7 @@ function AddressModal({ isOpen, onClose, onSuccess, editingAddress = null }) {
   });
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    if (editingAddress) {
-      setAddressData({
-        fullName: editingAddress.fullName || "",
-        phoneNumber: editingAddress.phoneNumber || "",
-        province: editingAddress.province || "",
-        ward: editingAddress.ward || "",
-        street: editingAddress.street || "",
-        note: editingAddress.note || "",
-      });
-    } else {
-      setAddressData({
-        fullName: "",
-        phoneNumber: "",
-        province: "",
-        ward: "",
-        street: "",
-        note: "",
-      });
-    }
-  }, [editingAddress, isOpen]);
+
 
   if (!isOpen) return null;
 
@@ -55,22 +35,6 @@ function AddressModal({ isOpen, onClose, onSuccess, editingAddress = null }) {
     }
     
     setIsSaving(true);
-    try {
-      if (editingAddress) {
-        // Giả sử bạn có hàm updateAddress, nếu không, bạn cần thêm nó vào userService
-        // await userService.updateAddress(editingAddress.id, addressData); 
-        toast.error("Update address function not implemented yet."); // Placeholder
-      } else {
-        await userService.addAddress(addressData);
-        toast.success("Address added successfully!");
-      }
-      onSuccess();
-      onClose();
-    } catch (error) {
-      toast.error(error.message || `Failed to ${editingAddress ? 'update' : 'add'} address`);
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   return (
@@ -83,7 +47,7 @@ function AddressModal({ isOpen, onClose, onSuccess, editingAddress = null }) {
           <X className="w-6 h-6" />
         </button>
         <h2 className="text-xl font-bold text-gray-900 mb-6">
-          {editingAddress ? 'Edit Address' : 'Add New Address'}
+          {'Add New Address'}
         </h2>
         <form onSubmit={handleSaveAddress} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -170,7 +134,7 @@ function AddressModal({ isOpen, onClose, onSuccess, editingAddress = null }) {
               className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 flex items-center gap-2"
             >
               {isSaving && <Loader2 className="w-4 h-4 animate-spin" />} 
-              {editingAddress ? 'Update' : 'Save'} Address
+              {'Save'} Address
             </button>
           </div>
         </form>
@@ -196,7 +160,6 @@ export default function Profile() {
   });
   const [orderFilter, setOrderFilter] = useState("ALL");
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
-  const [editingAddress, setEditingAddress] = useState(null);
   
   // Pagination states
   const [orderPage, setOrderPage] = useState(0);
@@ -326,14 +289,9 @@ export default function Profile() {
     }
   };
 
-  const handleEditAddress = (address) => {
-    setEditingAddress(address);
-    setIsAddressModalOpen(true);
-  };
 
   const handleAddressModalClose = () => {
     setIsAddressModalOpen(false);
-    setEditingAddress(null);
   };
 
   const handleAddressSuccess = () => {
@@ -489,7 +447,6 @@ export default function Profile() {
         <h2 className="text-xl font-bold text-gray-900">My Addresses</h2>
         <button 
           onClick={() => {
-            setEditingAddress(null);
             setIsAddressModalOpen(true);
           }} 
           className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-medium flex items-center gap-2"
@@ -516,13 +473,6 @@ export default function Profile() {
               <div className="flex justify-between items-start mb-2">
                 <h3 className="font-semibold text-gray-800">{address.fullName}</h3>
                 <div className="flex gap-2">
-                  <button 
-                    onClick={() => handleEditAddress(address)}
-                    className="text-blue-500 hover:text-blue-700 p-1 hover:bg-blue-50 rounded"
-                    title="Edit address"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
                   <button 
                     onClick={() => handleDeleteAddress(address.id)}
                     className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded"
@@ -801,7 +751,6 @@ export default function Profile() {
         isOpen={isAddressModalOpen}
         onClose={handleAddressModalClose}
         onSuccess={handleAddressSuccess}
-        editingAddress={editingAddress}
       />
     </div>
   );
