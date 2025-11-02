@@ -91,6 +91,27 @@ createReview: async (productId, rating, reviewContent) => {
   },
 
 
+  checkUserPurchased: async (productId) => {
+  try {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    if (!user.id) return false;
+    
+    const response = await axiosInstance.get(
+      `/products/${productId}/check-purchased`,
+      {
+        headers: {
+          "X-User-Id": user.id,
+        },
+      }
+    );
+    return response.data.data || false;
+  } catch (error) {
+    console.error(`Error checking purchase status for product ${productId}:`, error);
+    return false;
+  }
+},
+
+
 };
 
 export default productService;

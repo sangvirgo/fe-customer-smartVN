@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { showToast } from "../../components/Toast";
-import { decodeToken, isTokenExpired, isUserActive, analyzeErrorMessage } from "../../utils/authUtils";
+import { decodeToken, isTokenExpired, analyzeErrorMessage } from "../../utils/authUtils";
 
 export default function OAuth2Redirect() {
   const [searchParams] = useSearchParams();
@@ -13,9 +13,9 @@ export default function OAuth2Redirect() {
       const error = searchParams.get("error");
       const errorMessage = searchParams.get("message");
 
-      // ✅ 1. Xử lý lỗi từ backend (account banned, inactive, etc.)
+      // ✅ 1. Xử lý lỗi từ backend TRƯỚC (account banned, inactive, etc.)
       if (error) {
-        console.error("OAuth2 Error:", error, errorMessage);
+        console.error("OAuth2 Error from backend:", error, errorMessage);
         
         const errorReason = analyzeErrorMessage(errorMessage || error);
         
@@ -47,7 +47,7 @@ export default function OAuth2Redirect() {
           navigate("/login");
         }, 2000);
         
-        return;
+        return; // ⚠️ RETURN ở đây để KHÔNG tiếp tục xử lý
       }
 
       // ✅ 2. Kiểm tra token có tồn tại
@@ -78,7 +78,8 @@ export default function OAuth2Redirect() {
 
       try {
         // ✅ 6. Fetch user profile để verify account status
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/users/profile`, {
+        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api/v1';
+        const response = await fetch(`${apiBaseUrl}/users/profile`, {
           headers: { 
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
